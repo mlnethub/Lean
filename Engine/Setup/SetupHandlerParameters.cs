@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -64,6 +64,16 @@ namespace QuantConnect.Lean.Engine.Setup
         public IRealTimeHandler RealTimeHandler { get; }
 
         /// <summary>
+        /// Gets the ObjectStore
+        /// </summary>
+        public IObjectStore ObjectStore { get; }
+
+        /// <summary>
+        /// Gets the DataProvider
+        /// </summary>
+        public IDataProvider DataProvider { get; }
+
+        /// <summary>
         /// Creates a new instance
         /// </summary>
         /// <param name="universeSelection">The universe selection instance</param>
@@ -73,13 +83,17 @@ namespace QuantConnect.Lean.Engine.Setup
         /// <param name="resultHandler">The configured result handler</param>
         /// <param name="transactionHandler">The configured transaction handler</param>
         /// <param name="realTimeHandler">The configured real time handler</param>
+        /// <param name="objectStore">The configured object store</param>
+        /// <param name="dataProvider">The configured data provider</param>
         public SetupHandlerParameters(UniverseSelection universeSelection,
             IAlgorithm algorithm,
             IBrokerage brokerage,
             AlgorithmNodePacket algorithmNodePacket,
             IResultHandler resultHandler,
             ITransactionHandler transactionHandler,
-            IRealTimeHandler realTimeHandler
+            IRealTimeHandler realTimeHandler,
+            IObjectStore objectStore,
+            IDataProvider dataProvider
             )
         {
             UniverseSelection = universeSelection;
@@ -89,6 +103,8 @@ namespace QuantConnect.Lean.Engine.Setup
             ResultHandler = resultHandler;
             TransactionHandler = transactionHandler;
             RealTimeHandler = realTimeHandler;
+            ObjectStore = objectStore;
+            DataProvider = dataProvider;
         }
     }
 }

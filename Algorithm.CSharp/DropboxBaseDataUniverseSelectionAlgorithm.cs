@@ -30,10 +30,8 @@ namespace QuantConnect.Algorithm.CSharp
     /// <meta name="tag" content="using data" />
     /// <meta name="tag" content="universes" />
     /// <meta name="tag" content="custom universes" />
-    public class DropboxBaseDataUniverseSelectionAlgorithm : QCAlgorithm//, IRegressionAlgorithmDefinition
+    public class DropboxBaseDataUniverseSelectionAlgorithm : QCAlgorithm, IRegressionAlgorithmDefinition
     {
-        // Regression algorithm disabled due to dropbox file missing
-
         // the changes from the previous universe selection
         private SecurityChanges _changes = SecurityChanges.None;
 
@@ -47,8 +45,12 @@ namespace QuantConnect.Algorithm.CSharp
         {
             UniverseSettings.Resolution = Resolution.Daily;
 
-            SetStartDate(2013, 01, 01);
-            SetEndDate(2013, 12, 31);
+            // Order margin value has to have a minimum of 0.5% of Portfolio value, allows filtering out small trades and reduce fees.
+            // Commented so regression algorithm is more sensitive
+            //Settings.MinimumOrderMarginPortfolioPercentage = 0.005m;
+
+            SetStartDate(2017, 07, 04);
+            SetEndDate(2018, 07, 04);
 
             AddUniverse<StockDataSource>("my-stock-data-source", stockDataSource =>
             {
@@ -104,8 +106,8 @@ namespace QuantConnect.Algorithm.CSharp
         /// </summary>
         class StockDataSource : BaseData
         {
-            private const string LiveUrl = @"https://www.dropbox.com/s/2az14r5xbx4w5j6/daily-stock-picker-live.csv?dl=1";
-            private const string BacktestUrl = @"https://www.dropbox.com/s/rmiiktz0ntpff3a/daily-stock-picker-backtest.csv?dl=1";
+            private const string LiveUrl = @"https://www.dropbox.com/s/2l73mu97gcehmh7/daily-stock-picker-live.csv?dl=1";
+            private const string BacktestUrl = @"https://www.dropbox.com/s/ae1couew5ir3z9y/daily-stock-picker-backtest.csv?dl=1";
 
             /// <summary>
             /// The symbols to be selected
@@ -186,25 +188,48 @@ namespace QuantConnect.Algorithm.CSharp
         /// </summary>
         public Dictionary<string, string> ExpectedStatistics => new Dictionary<string, string>
         {
-            {"Total Trades", "90"},
-            {"Average Win", "0.78%"},
-            {"Average Loss", "-0.39%"},
-            {"Compounding Annual Return", "18.547%"},
-            {"Drawdown", "4.700%"},
-            {"Expectancy", "1.068"},
-            {"Net Profit", "18.547%"},
-            {"Sharpe Ratio", "1.993"},
-            {"Loss Rate", "30%"},
-            {"Win Rate", "70%"},
-            {"Profit-Loss Ratio", "1.96"},
-            {"Alpha", "0.071"},
-            {"Beta", "0.362"},
-            {"Annual Standard Deviation", "0.086"},
-            {"Annual Variance", "0.007"},
-            {"Information Ratio", "-1.021"},
-            {"Tracking Error", "0.103"},
-            {"Treynor Ratio", "0.471"},
-            {"Total Fees", "$251.12"}
+            {"Total Trades", "6441"},
+            {"Average Win", "0.07%"},
+            {"Average Loss", "-0.07%"},
+            {"Compounding Annual Return", "14.802%"},
+            {"Drawdown", "10.400%"},
+            {"Expectancy", "0.068"},
+            {"Net Profit", "14.802%"},
+            {"Sharpe Ratio", "1.077"},
+            {"Probabilistic Sharpe Ratio", "50.578%"},
+            {"Loss Rate", "46%"},
+            {"Win Rate", "54%"},
+            {"Profit-Loss Ratio", "0.97"},
+            {"Alpha", "0.137"},
+            {"Beta", "-0.069"},
+            {"Annual Standard Deviation", "0.119"},
+            {"Annual Variance", "0.014"},
+            {"Information Ratio", "0.046"},
+            {"Tracking Error", "0.169"},
+            {"Treynor Ratio", "-1.869"},
+            {"Total Fees", "$7495.19"},
+            {"Estimated Strategy Capacity", "$320000.00"},
+            {"Lowest Capacity Asset", "BNO UN3IMQ2JU1YD"},
+            {"Fitness Score", "0.695"},
+            {"Kelly Criterion Estimate", "0"},
+            {"Kelly Criterion Probability Value", "0"},
+            {"Sortino Ratio", "1.269"},
+            {"Return Over Maximum Drawdown", "1.424"},
+            {"Portfolio Turnover", "1.613"},
+            {"Total Insights Generated", "0"},
+            {"Total Insights Closed", "0"},
+            {"Total Insights Analysis Completed", "0"},
+            {"Long Insight Count", "0"},
+            {"Short Insight Count", "0"},
+            {"Long/Short Ratio", "100%"},
+            {"Estimated Monthly Alpha Value", "$0"},
+            {"Total Accumulated Estimated Alpha Value", "$0"},
+            {"Mean Population Estimated Insight Value", "$0"},
+            {"Mean Population Direction", "0%"},
+            {"Mean Population Magnitude", "0%"},
+            {"Rolling Averaged Population Direction", "0%"},
+            {"Rolling Averaged Population Magnitude", "0%"},
+            {"OrderListHash", "4e9dbe6c2640427a5f3e510b57c7155f"}
         };
     }
 }

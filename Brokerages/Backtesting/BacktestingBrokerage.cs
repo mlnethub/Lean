@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -24,6 +24,7 @@ using QuantConnect.Orders.Fills;
 using QuantConnect.Orders.Fees;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Option;
+using QuantConnect.Securities.Positions;
 
 namespace QuantConnect.Brokerages.Backtesting
 {
@@ -187,7 +188,9 @@ namespace QuantConnect.Brokerages.Backtesting
             var updated = new OrderEvent(order,
                     Algorithm.UtcTime,
                     OrderFee.Zero)
-                { Status = OrderStatus.Submitted };
+            {
+                Status = OrderStatus.UpdateSubmitted
+            };
             OnOrderEvent(updated);
 
             return true;
@@ -267,15 +270,13 @@ namespace QuantConnect.Brokerages.Backtesting
                     }
 
                     // all order fills are processed on the next bar (except for market orders)
-                    if (order.Time == Algorithm.UtcTime && order.Type != OrderType.Market)
+                    if (order.Time == Algorithm.UtcTime && order.Type != OrderType.Market && order.Type != OrderType.OptionExercise)
                     {
                         stillNeedsScan = true;
                         continue;
                     }
 
-                    var fills = new[] { new OrderEvent(order,
-                        Algorithm.UtcTime,
-                        OrderFee.Zero) };
+                    var fills = new OrderEvent[0];
 
                     Security security;
                     if (!Algorithm.Securities.TryGetValue(order.Symbol, out security))
@@ -288,6 +289,21 @@ namespace QuantConnect.Brokerages.Backtesting
                         {Status = OrderStatus.Invalid});
                         _pending.TryRemove(order.Id, out order);
                         continue;
+                    }
+
+                    if (order.Type == OrderType.MarketOnOpen)
+                    {
+                        // This is a performance improvement:
+                        // Since MOO should never fill on the same bar or on stale data (see FillModel)
+                        // the order can remain unfilled for multiple 'scans', so we want to avoid
+                        // margin and portfolio calculations since they are expensive
+                        var currentBar = security.GetLastData();
+                        var localOrderTime = order.Time.ConvertFromUtc(security.Exchange.TimeZone);
+                        if (currentBar == null || localOrderTime >= currentBar.EndTime)
+                        {
+                            stillNeedsScan = true;
+                            continue;
+                        }
                     }
 
                     // check if the time in force handler allows fills
@@ -314,7 +330,10 @@ namespace QuantConnect.Brokerages.Backtesting
                     HasSufficientBuyingPowerForOrderResult hasSufficientBuyingPowerResult;
                     try
                     {
-                        hasSufficientBuyingPowerResult = security.BuyingPowerModel.HasSufficientBuyingPowerForOrder(Algorithm.Portfolio, security, order);
+                        var group = Algorithm.Portfolio.Positions.CreatePositionGroup(order);
+                        hasSufficientBuyingPowerResult = group.BuyingPowerModel.HasSufficientBuyingPowerForOrder(
+                            new HasSufficientPositionGroupBuyingPowerForOrderParameters(Algorithm.Portfolio, group, order)
+                        );
                     }
                     catch (Exception err)
                     {
@@ -415,7 +434,7 @@ namespace QuantConnect.Brokerages.Backtesting
                             OnOrderEvent(fill);
                         }
 
-                        if (order.Type == OrderType.OptionExercise)
+                        if (fill.IsAssignment)
                         {
                             fill.Message = order.Tag;
                             OnOptionPositionAssigned(fill);
@@ -459,7 +478,8 @@ namespace QuantConnect.Brokerages.Backtesting
 
             _pendingOptionAssignments.Add(option.Symbol);
 
-            var request = new SubmitOrderRequest(OrderType.OptionExercise, option.Type, option.Symbol, -quantity, 0m, 0m, Algorithm.UtcTime, "Simulated option assignment before expiration");
+            // assignments always cause a positive change to option contract holdings
+            var request = new SubmitOrderRequest(OrderType.OptionExercise, option.Type, option.Symbol, Math.Abs(quantity), 0m, 0m, 0m, Algorithm.UtcTime, "Simulated option assignment before expiration");
 
             var ticket = Algorithm.Transactions.ProcessRequest(request);
             Log.Trace($"BacktestingBrokerage.ActivateOptionAssignment(): OrderId: {ticket.OrderId}");
@@ -502,8 +522,7 @@ namespace QuantConnect.Brokerages.Backtesting
         /// <returns></returns>
         private void SetPendingOrder(Order order)
         {
-            // only save off clones!
-            _pending[order.Id] = order.Clone();
+            _pending[order.Id] = order;
         }
     }
 }

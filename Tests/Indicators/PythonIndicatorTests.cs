@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  * 
@@ -37,13 +37,8 @@ namespace QuantConnect.Tests.Indicators
                 var module = PythonEngine.ModuleFromString(
                     Guid.NewGuid().ToString(),
                     @"
-from clr import AddReference
-AddReference('QuantConnect.Indicators')
-
-from QuantConnect.Indicators import PythonIndicator
+from AlgorithmImports import *
 from collections import deque
-from datetime import datetime, timedelta
-from numpy import sum
 
 class CustomSimpleMovingAverage(PythonIndicator):
     def __init__(self, name, period):
@@ -55,7 +50,7 @@ class CustomSimpleMovingAverage(PythonIndicator):
     def Update(self, input):
         self.queue.appendleft(input.Value)
         count = len(self.queue)
-        self.Value = sum(self.queue) / count
+        self.Value = np.sum(self.queue) / count
         return count == self.queue.maxlen
 "
                 );
@@ -179,9 +174,7 @@ class CustomSimpleMovingAverage(PythonIndicator):
                 var module = PythonEngine.ModuleFromString(
                     Guid.NewGuid().ToString(),
                     @"
-from clr import AddReference
-AddReference('QuantConnect.Indicators')
-from QuantConnect.Indicators import PythonIndicator
+from AlgorithmImports import *
 class GoodCustomIndicator(PythonIndicator):
     def __init__(self):
         self.Value = 0
@@ -199,11 +192,62 @@ class BadCustomIndicator(PythonIndicator):
                 var goodIndicator = module.GetAttr("GoodCustomIndicator").Invoke();
                 Assert.DoesNotThrow(() => algorithm.RegisterIndicator(spy, goodIndicator, Resolution.Minute));
 
-                var actual = algorithm.SubscriptionManager.Subscriptions.FirstOrDefault().Consolidators.Count;
+                var actual = algorithm.SubscriptionManager.Subscriptions
+                    .FirstOrDefault(config => config.TickType == TickType.Trade)
+                    .Consolidators.Count;
                 Assert.AreEqual(1, actual);
 
                 var badIndicator = module.GetAttr("BadCustomIndicator").Invoke();
                 Assert.Throws<NotImplementedException>(() => algorithm.RegisterIndicator(spy, badIndicator, Resolution.Minute));
+            }
+        }
+
+        [Test]
+        public void AllPythonRegisterIndicatorCases()
+        {
+            //This test covers all three cases of registering a indicator through Python 
+
+            //Setup algorithm and Equity
+            var algorithm = new QCAlgorithm();
+            algorithm.SubscriptionManager.SetDataManager(new DataManagerStub(algorithm));
+            var spy = algorithm.AddEquity("SPY").Symbol;
+
+            //Setup Python Indicator and Consolidator
+            using (Py.GIL())
+            {
+                var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
+                    "from AlgorithmImports import *\n" +
+                    "consolidator = QuoteBarConsolidator(timedelta(days = 5)) \n" +
+                    "timeDelta = timedelta(days=2)\n" +
+                    "class CustomIndicator(PythonIndicator):\n" +
+                    "   def __init__(self):\n" +
+                    "       self.Value = 0\n" +
+                    "   def Update(self, input):\n" +
+                    "       self.Value = input.Value\n" +
+                    "       return True\n" +
+                    "class CustomConsolidator(PythonConsolidator):\n" +
+                    "   def __init__(self):\n" +
+                    "       self.InputType = QuoteBar\n" +
+                    "       self.OutputType = QuoteBar\n" +
+                    "       self.Consolidated = None\n" +
+                    "       self.WorkingData = None\n"
+                );
+
+                //Get our variables from Python
+                var PyIndicator = module.GetAttr("CustomIndicator").Invoke();
+                var PyConsolidator = module.GetAttr("CustomConsolidator").Invoke();
+                var Consolidator = module.GetAttr("consolidator");
+                algorithm.SubscriptionManager.AddConsolidator(spy, Consolidator);
+                var TimeDelta = module.GetAttr("timeDelta");
+
+                //Test 1: Using a C# Consolidator; Should convert consolidator into IDataConsolidator
+                Assert.DoesNotThrow(() => algorithm.RegisterIndicator(spy, PyIndicator, Consolidator));
+
+                //Test 2: Using a Python Consolidator; Should wrap consolidator
+                Assert.DoesNotThrow(() => algorithm.RegisterIndicator(spy, PyIndicator, PyConsolidator));
+
+                //Test 3: Using a timedelta object; Should convert timedelta to timespan
+                Assert.DoesNotThrow(() => algorithm.RegisterIndicator(spy, PyIndicator, TimeDelta));
             }
         }
     }

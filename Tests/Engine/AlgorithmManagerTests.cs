@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
+using QuantConnect.Brokerages;
 using QuantConnect.Brokerages.Backtesting;
 using QuantConnect.Data;
 using QuantConnect.Data.Market;
@@ -53,6 +54,7 @@ namespace QuantConnect.Tests.Engine
             var feed = new MockDataFeed();
             var marketHoursDatabase = MarketHoursDatabase.FromDataFolder();
             var symbolPropertiesDataBase = SymbolPropertiesDatabase.FromDataFolder();
+            var dataPermissionManager = new DataPermissionManager();
             var dataManager = new DataManager(feed,
                 new UniverseSelection(
                     algorithm,
@@ -61,12 +63,15 @@ namespace QuantConnect.Tests.Engine
                         symbolPropertiesDataBase,
                         algorithm,
                         RegisteredSecurityDataTypesProvider.Null,
-                        new SecurityCacheProvider(algorithm.Portfolio))),
+                        new SecurityCacheProvider(algorithm.Portfolio)),
+                    dataPermissionManager,
+                    new DefaultDataProvider()),
                 algorithm,
                 algorithm.TimeKeeper,
                 marketHoursDatabase,
                 false,
-                RegisteredSecurityDataTypesProvider.Null);
+                RegisteredSecurityDataTypesProvider.Null,
+                dataPermissionManager);
             algorithm.SubscriptionManager.SetDataManager(dataManager);
             var transactions = new BacktestingTransactionHandler();
             var results = new BacktestingResultHandler();
@@ -82,13 +87,15 @@ namespace QuantConnect.Tests.Engine
             results.Initialize(job, new QuantConnect.Messaging.Messaging(), new Api.Api(), transactions);
             results.SetAlgorithm(algorithm, algorithm.Portfolio.TotalPortfolioValue);
             transactions.Initialize(algorithm, new BacktestingBrokerage(algorithm), results);
-            feed.Initialize(algorithm, job, results, null, null, null, dataManager, null);
+            feed.Initialize(algorithm, job, results, null, null, null, dataManager, null, null);
 
             Log.Trace("Starting algorithm manager loop to process " + nullSynchronizer.Count + " time slices");
             var sw = Stopwatch.StartNew();
             algorithmManager.Run(job, algorithm, nullSynchronizer, transactions, results, realtime, leanManager, alphas, token);
             sw.Stop();
 
+            realtime.Exit();
+            results.Exit();
             var thousands = nullSynchronizer.Count / 1000d;
             var seconds = sw.Elapsed.TotalSeconds;
             Log.Trace("COUNT: " + nullSynchronizer.Count + "  KPS: " + thousands/seconds);
@@ -98,7 +105,7 @@ namespace QuantConnect.Tests.Engine
         {
             public bool IsActive { get; }
             public AlphaRuntimeStatistics RuntimeStatistics { get; }
-            public void Initialize(AlgorithmNodePacket job, IAlgorithm algorithm, IMessagingHandler messagingHandler, IApi api)
+            public void Initialize(AlgorithmNodePacket job, IAlgorithm algorithm, IMessagingHandler messagingHandler, IApi api, ITransactionHandler transactionHandler)
             {
             }
 
@@ -152,19 +159,16 @@ namespace QuantConnect.Tests.Engine
         class NullResultHandler : IResultHandler
         {
             public ConcurrentQueue<Packet> Messages { get; set; }
-            public ConcurrentDictionary<string, Chart> Charts { get; set; }
-            public TimeSpan ResamplePeriod { get; }
-            public TimeSpan NotificationPeriod { get; }
             public bool IsActive { get; }
+
+            public void OnSecuritiesChanged(SecurityChanges changes)
+            {
+            }
 
             public void Initialize(AlgorithmNodePacket job,
                 IMessagingHandler messagingHandler,
                 IApi api,
                 ITransactionHandler transactionHandler)
-            {
-            }
-
-            public void Run()
             {
             }
 
@@ -192,27 +196,11 @@ namespace QuantConnect.Tests.Engine
             {
             }
 
-            public void Sample(string chartName, string seriesName, int seriesIndex, SeriesType seriesType, DateTime time, decimal value, string unit = "$")
+            public void BrokerageMessage(BrokerageMessageEvent brokerageMessageEvent)
             {
             }
 
-            public void SampleEquity(DateTime time, decimal value)
-            {
-            }
-
-            public void SamplePerformance(DateTime time, decimal value)
-            {
-            }
-
-            public void SampleBenchmark(DateTime time, decimal value)
-            {
-            }
-
-            public void SampleAssetPrices(Symbol symbol, DateTime time, decimal value)
-            {
-            }
-
-            public void SampleRange(List<Chart> samples)
+            public void Sample(DateTime time, bool force = false)
             {
             }
 
@@ -224,19 +212,7 @@ namespace QuantConnect.Tests.Engine
             {
             }
 
-            public void StoreResult(Packet packet, bool async = false)
-            {
-            }
-
-            public void SendFinalResult()
-            {
-            }
-
             public void SendStatusUpdate(AlgorithmStatus status, string message = "")
-            {
-            }
-
-            public void SetChartSubscription(string symbol)
             {
             }
 
@@ -252,17 +228,8 @@ namespace QuantConnect.Tests.Engine
             {
             }
 
-            public void PurgeQueue()
-            {
-            }
-
             public void ProcessSynchronousEvents(bool forceProcess = false)
             {
-            }
-
-            public string SaveLogs(string id, IEnumerable<string> logs)
-            {
-                return id;
             }
 
             public void SaveResults(string name, Result result)
@@ -308,76 +275,6 @@ namespace QuantConnect.Tests.Engine
             public void OnSecuritiesChanged(SecurityChanges changes)
             {
             }
-        }
-
-        class NullTransactionHandler : ITransactionHandler
-        {
-            public int OrdersCount { get; }
-            public Order GetOrderById(int orderId)
-            {
-                throw new NotImplementedException();
-            }
-
-            public Order GetOrderByBrokerageId(string brokerageId)
-            {
-                throw new NotImplementedException();
-            }
-
-            public IEnumerable<OrderTicket> GetOrderTickets(Func<OrderTicket, bool> filter = null)
-            {
-                throw new NotImplementedException();
-            }
-
-            public IEnumerable<OrderTicket> GetOpenOrderTickets(Func<OrderTicket, bool> filter = null)
-            {
-                return OrderTickets.Values.Where(x => x.Status.IsOpen() && (filter == null || filter(x)));
-            }
-
-            public OrderTicket GetOrderTicket(int orderId)
-            {
-                throw new NotImplementedException();
-            }
-
-            public IEnumerable<Order> GetOrders(Func<Order, bool> filter = null)
-            {
-                throw new NotImplementedException();
-            }
-
-            public OrderTicket Process(OrderRequest request)
-            {
-                throw new NotImplementedException();
-            }
-
-            public List<Order> GetOpenOrders(Func<Order, bool> filter = null)
-            {
-                return Orders.Values.Where(x => x.Status.IsOpen() && (filter == null || filter(x))).ToList();
-            }
-
-            public bool IsActive { get; }
-            public ConcurrentDictionary<int, Order> Orders { get; }
-            public ConcurrentDictionary<int, OrderTicket> OrderTickets { get; }
-            public void Initialize(IAlgorithm algorithm, IBrokerage brokerage, IResultHandler resultHandler)
-            {
-            }
-
-            public void Run()
-            {
-            }
-
-            public void Exit()
-            {
-            }
-
-            public void ProcessSynchronousEvents()
-            {
-            }
-
-            public void AddOpenOrder(Order order, OrderTicket orderTicket)
-            {
-                throw new NotImplementedException();
-            }
-
-            public event EventHandler<OrderEvent> NewOrderEvent;
         }
 
         class NullSynchronizer : ISynchronizer

@@ -32,7 +32,7 @@ namespace QuantConnect.Tests.Brokerages.GDAX
                 SecurityExchangeHours.AlwaysOpen(TimeZones.Utc),
                 CreateConfig(securityType, resolution),
                 new Cash(Currencies.USD, 1000, price),
-                new SymbolProperties("BTCUSD", Currencies.USD, 1, 1, 0.01m),
+                new SymbolProperties("BTCUSD", Currencies.USD, 1, 1, 0.01m, string.Empty),
                 ErrorCurrencyConverter.Instance,
                 RegisteredSecurityDataTypesProvider.Null,
                 new SecurityCache()
@@ -55,7 +55,7 @@ namespace QuantConnect.Tests.Brokerages.GDAX
 
         public static WebSocketMessage GetArgs(string json)
         {
-            return new WebSocketMessage(json);
+            return new WebSocketMessage(null, json);
         }
     }
 }

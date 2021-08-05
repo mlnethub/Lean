@@ -1,11 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
+/*
+ * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+ * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using QuantConnect.Data.Market;
-using QuantConnect.ToolBox;
+using QuantConnect.Data;
 using QuantConnect.Util;
+using QuantConnect.Securities;
+using QuantConnect.Data.Market;
+using System.Collections.Generic;
 
 namespace QuantConnect.Tests.ToolBox
 {
@@ -17,10 +32,9 @@ namespace QuantConnect.Tests.ToolBox
         private Symbol _cfd;
         private Symbol _equity;
         private Symbol _crypto;
-        private List<Tick> _ticks;
         private DateTime _date;
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void Setup()
         {
             _forex = Symbol.Create("EURUSD", SecurityType.Forex, Market.FXCM);
@@ -64,6 +78,50 @@ namespace QuantConnect.Tests.ToolBox
             var data = QuantConnect.Compression.Unzip(filePath);
 
             Assert.AreEqual(data.First().Value.Count(), 3);
+        }
+
+        [TestCase(SecurityType.FutureOption)]
+        [TestCase(SecurityType.Future)]
+        [TestCase(SecurityType.Option)]
+        public void LeanDataWriter_CanWriteZipWithMultipleContracts(SecurityType securityType)
+        {
+            Symbol contract1;
+            Symbol contract2;
+            if (securityType == SecurityType.Future)
+            {
+                contract1 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2020, 02, 01));
+                contract2 = Symbol.CreateFuture(Futures.Indices.SP500EMini, Market.CME, new DateTime(2020, 03, 01));
+            }
+            else if (securityType == SecurityType.Option)
+            {
+                contract1 = Symbol.CreateOption("AAPL", Market.USA, OptionStyle.American, OptionRight.Call, 1, new DateTime(2020, 02, 01));
+                contract2 = Symbol.CreateOption("AAPL", Market.USA, OptionStyle.American, OptionRight.Call, 1, new DateTime(2020, 03, 01));
+            }
+            else if (securityType == SecurityType.FutureOption)
+            {
+                contract1 = Symbol.CreateOption(Futures.Indices.SP500EMini, Market.CME, OptionStyle.American, OptionRight.Call, 1, new DateTime(2020, 02, 01));
+                contract2 = Symbol.CreateOption(Futures.Indices.SP500EMini, Market.CME, OptionStyle.American, OptionRight.Call, 1, new DateTime(2020, 03, 01));
+            }
+            else
+            {
+                throw new NotImplementedException($"{securityType} not implemented!");
+            }
+
+            var filePath1 = LeanData.GenerateZipFilePath(_dataDirectory, contract1, _date, Resolution.Second, TickType.Quote);
+            var leanDataWriter1 = new LeanDataWriter(Resolution.Second, contract1, _dataDirectory, TickType.Quote);
+            leanDataWriter1.Write(GetQuoteBars(contract1));
+
+            var filePath2 = LeanData.GenerateZipFilePath(_dataDirectory, contract2, _date, Resolution.Second, TickType.Quote);
+            var leanDataWriter2 = new LeanDataWriter(Resolution.Second, contract2, _dataDirectory, TickType.Quote);
+            leanDataWriter2.Write(GetQuoteBars(contract2));
+
+            Assert.AreEqual(filePath1, filePath2);
+            Assert.IsTrue(File.Exists(filePath1));
+            Assert.IsFalse(File.Exists(filePath1 + ".tmp"));
+
+            var data = QuantConnect.Compression.Unzip(filePath1).ToDictionary(x => x.Key, x => x.Value.ToList());
+            Assert.AreEqual(2, data.Count);
+            Assert.That(data.Values, Has.All.Count.EqualTo(3));
         }
 
         [Test]

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -58,7 +58,29 @@ namespace QuantConnect.Tests.Indicators
         }
 
         [Test]
-        public void ResetsProperly()
+        public void ComparesWithExternalDataBandWidth()
+        {
+            TestHelper.TestIndicator(
+                CreateIndicator() as BollingerBands,
+                TestFileName,
+                "BandWidth",
+                ind => (double)ind.BandWidth.Current.Value
+            );
+        }
+
+        [Test]
+        public void ComparesWithExternalDataPercentB()
+        {
+            TestHelper.TestIndicator(
+                CreateIndicator() as BollingerBands,
+                TestFileName,
+                "%B",
+                ind => (double)ind.PercentB.Current.Value
+            );
+        }
+
+        [Test]
+        public override void ResetsProperly()
         {
             var bb = new BollingerBands(2, 2m);
             bb.Update(DateTime.Today, 1m);
@@ -70,6 +92,8 @@ namespace QuantConnect.Tests.Indicators
             Assert.IsTrue(bb.LowerBand.IsReady);
             Assert.IsTrue(bb.MiddleBand.IsReady);
             Assert.IsTrue(bb.UpperBand.IsReady);
+            Assert.IsTrue(bb.BandWidth.IsReady);
+            Assert.IsTrue(bb.PercentB.IsReady);
 
             bb.Reset();
             TestHelper.AssertIndicatorIsInDefaultState(bb);
@@ -77,6 +101,8 @@ namespace QuantConnect.Tests.Indicators
             TestHelper.AssertIndicatorIsInDefaultState(bb.LowerBand);
             TestHelper.AssertIndicatorIsInDefaultState(bb.MiddleBand);
             TestHelper.AssertIndicatorIsInDefaultState(bb.UpperBand);
+            TestHelper.AssertIndicatorIsInDefaultState(bb.BandWidth);
+            TestHelper.AssertIndicatorIsInDefaultState(bb.PercentB);
         }
 
         [Test]
@@ -100,6 +126,48 @@ namespace QuantConnect.Tests.Indicators
 
             Assert.AreEqual(1, lowerBandUpdateCount);
             Assert.AreEqual(1, upperBandUpdateCount);
+        }
+
+        [Test]
+        public void DoesNotUpdateWhenStale()
+        {
+            // Unit test for GH Issue #4927
+            var period = 5;
+            var bb = new BollingerBands(period, 2m);
+
+            var lastPercentB = new IndicatorDataPoint();
+            var lastUpdateTime = DateTime.MinValue;
+            bb.Updated += (s, e) =>
+            {
+                if (bb.IsReady && lastPercentB == bb.PercentB.Current)
+                {
+                    throw new ArgumentException("BollingerBand is stale and should not be updating");
+                }
+
+                lastUpdateTime = e.Time;
+                lastPercentB = bb.PercentB.Current;
+            };
+
+            // Push in identical value points for the entire period.
+            for (int i = 0; i < period; i++)
+            {
+                bb.Update(DateTime.UtcNow, 1);
+            }
+
+            // Push in another identical value point, this should not update!
+            var time = DateTime.UtcNow;
+            bb.Update(time, 1);
+
+            // Assert this was not updated
+            Assert.AreNotEqual(time, lastUpdateTime);
+
+            // Push in a new value
+            time = DateTime.UtcNow;
+            bb.Update(time, 2);
+
+            // Assert this did update
+            Assert.AreEqual(time, lastUpdateTime);
+            Assert.AreEqual(lastPercentB, bb.PercentB.Current);
         }
     }
 }

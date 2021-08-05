@@ -225,10 +225,7 @@ namespace QuantConnect.Statistics
 
             Alpha = Beta == 0 ? 0 : annualPerformance - (RiskFreeRate + Beta * (benchmarkAnnualPerformance - RiskFreeRate));
 
-            var correlation = Correlation.Pearson(listPerformance, listBenchmark);
-            var benchmarkAnnualVariance = benchmarkVariance * tradingDaysPerYear;
-            TrackingError = correlation.IsNaNOrZero() || benchmarkAnnualVariance.IsNaNOrZero() ? 0 :
-                (decimal)Math.Sqrt((double)AnnualVariance - 2 * correlation * (double)AnnualStandardDeviation * Math.Sqrt(benchmarkAnnualVariance) + benchmarkAnnualVariance);
+            TrackingError = (decimal)Statistics.TrackingError(listPerformance, listBenchmark, (double)tradingDaysPerYear);
 
             InformationRatio = TrackingError == 0 ? 0 : (annualPerformance - benchmarkAnnualPerformance) / TrackingError;
 
@@ -281,11 +278,11 @@ namespace QuantConnect.Statistics
         /// </summary>
         /// <param name="performance">Dictionary collection of double performance values</param>
         /// <param name="tradingDaysPerYear">Trading days per year for the assets in portfolio</param>
-        /// <remarks>May be unaccurate for forex algorithms with more trading days in a year</remarks>
+        /// <remarks>May be inaccurate for forex algorithms with more trading days in a year</remarks>
         /// <returns>Double annual performance percentage</returns>
         private static decimal GetAnnualPerformance(List<double> performance, int tradingDaysPerYear = 252)
         {
-            return (decimal)performance.Average() * tradingDaysPerYear;
+            return Statistics.AnnualPerformance(performance, tradingDaysPerYear).SafeDecimalCast();
         }
 
         /// <summary>
@@ -299,6 +296,6 @@ namespace QuantConnect.Statistics
         {
             var variance = performance.Variance();
             return variance.IsNaNOrZero() ? 0 : (decimal)variance * tradingDaysPerYear;
-        }
+        }        
     }
 }

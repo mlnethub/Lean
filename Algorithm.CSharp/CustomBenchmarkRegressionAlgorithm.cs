@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -79,22 +79,45 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Trades", "1"},
             {"Average Win", "0%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "33.293%"},
+            {"Compounding Annual Return", "34.768%"},
             {"Drawdown", "2.300%"},
             {"Expectancy", "0"},
-            {"Net Profit", "0.394%"},
-            {"Sharpe Ratio", "1.167"},
+            {"Net Profit", "0.382%"},
+            {"Sharpe Ratio", "5.488"},
+            {"Probabilistic Sharpe Ratio", "60.047%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "0%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "0.534"},
-            {"Beta", "-0.415"},
-            {"Annual Standard Deviation", "0.15"},
-            {"Annual Variance", "0.022"},
-            {"Information Ratio", "-2.767"},
-            {"Tracking Error", "0.25"},
-            {"Treynor Ratio", "-0.421"},
-            {"Total Fees", "$7.78"}
+            {"Alpha", "-0.001"},
+            {"Beta", "0.997"},
+            {"Annual Standard Deviation", "0.179"},
+            {"Annual Variance", "0.032"},
+            {"Information Ratio", "-7.724"},
+            {"Tracking Error", "0"},
+            {"Treynor Ratio", "0.986"},
+            {"Total Fees", "$32.11"},
+            {"Estimated Strategy Capacity", "$66000000.00"},
+            {"Lowest Capacity Asset", "AAPL R735QTJ8XC9X"},
+            {"Fitness Score", "0.029"},
+            {"Kelly Criterion Estimate", "0"},
+            {"Kelly Criterion Probability Value", "0"},
+            {"Sortino Ratio", "-2.336"},
+            {"Return Over Maximum Drawdown", "-8.991"},
+            {"Portfolio Turnover", "0.251"},
+            {"Total Insights Generated", "0"},
+            {"Total Insights Closed", "0"},
+            {"Total Insights Analysis Completed", "0"},
+            {"Long Insight Count", "0"},
+            {"Short Insight Count", "0"},
+            {"Long/Short Ratio", "100%"},
+            {"Estimated Monthly Alpha Value", "$0"},
+            {"Total Accumulated Estimated Alpha Value", "$0"},
+            {"Mean Population Estimated Insight Value", "$0"},
+            {"Mean Population Direction", "0%"},
+            {"Mean Population Magnitude", "0%"},
+            {"Rolling Averaged Population Direction", "0%"},
+            {"Rolling Averaged Population Magnitude", "0%"},
+            {"OrderListHash", "9ce7252112d0ad7be0704297f7d48a88"}
         };
     }
 }

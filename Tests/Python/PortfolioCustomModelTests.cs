@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -17,7 +17,6 @@
 using NUnit.Framework;
 using Python.Runtime;
 using QuantConnect.Algorithm;
-using QuantConnect.Data;
 using QuantConnect.Data.Market;
 using QuantConnect.Python;
 using QuantConnect.Securities;
@@ -52,10 +51,6 @@ namespace QuantConnect.Tests.Python
 
             portfolio.SetMarginCallModel(CreateCustomMarginCallModel(code, portfolio));
             Assert.IsAssignableFrom<MarginCallModelPythonWrapper>(portfolio.MarginCallModel);
-
-            var marginCallOrder = portfolio.MarginCallModel.GenerateMarginCallOrder(spy, 0m, 0m, 0m);
-            Assert.IsNotNull(marginCallOrder);
-            Assert.AreEqual(0, marginCallOrder.Quantity);
 
             bool issueMarginCallWarning;
             var marginCallOrders = portfolio.MarginCallModel.GetMarginCallOrders(out issueMarginCallWarning);
@@ -99,11 +94,7 @@ namespace QuantConnect.Tests.Python
 import os, sys
 sys.path.append(os.getcwd())
 
-from clr import AddReference
-AddReference('QuantConnect.Common')
-from QuantConnect import *
-from QuantConnect.Securities import *
-from QuantConnect.Orders import *
+from AlgorithmImports import *
 
 class CustomMarginCallModel:
     def __init__(self, portfolio, defaultOrderProperties):
@@ -132,17 +123,12 @@ class CustomMarginCallModel:
 import os, sys
 sys.path.append(os.getcwd())
 
-from clr import AddReference
-AddReference('QuantConnect.Common')
-from QuantConnect import *
-from QuantConnect.Securities import *
-from QuantConnect.Orders import *
+from AlgorithmImports import *
 
 class CustomMarginCallModel(DefaultMarginCallModel):
     def __init__(self, portfolio, defaultOrderProperties):
         self.porfolio = portfolio
         self.defaultOrderProperties = defaultOrderProperties
-        super().__init__(portfolio, defaultOrderProperties)
 
     def GenerateMarginCallOrder(self, security, netLiquidationValue, totalMargin, maintenanceMarginRequirement):
         time = Extensions.ConvertToUtc(security.LocalTime, security.Exchange.TimeZone)

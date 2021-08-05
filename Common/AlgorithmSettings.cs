@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -15,6 +15,7 @@
 
 using System;
 using QuantConnect.Interfaces;
+using QuantConnect.Securities;
 using QuantConnect.Orders.Fills;
 
 namespace QuantConnect
@@ -25,10 +26,20 @@ namespace QuantConnect
     public class AlgorithmSettings : IAlgorithmSettings
     {
         /// <summary>
+        /// True if should rebalance portfolio on security changes. True by default
+        /// </summary>
+        public bool? RebalancePortfolioOnSecurityChanges { get; set; }
+
+        /// <summary>
+        /// True if should rebalance portfolio on new insights or expiration of insights. True by default
+        /// </summary>
+        public bool? RebalancePortfolioOnInsightChanges { get; set; }
+
+        /// <summary>
         /// The absolute maximum valid total portfolio value target percentage
         /// </summary>
         /// <remarks>This setting is currently being used to filter out undesired target percent values,
-        /// caused by the <see cref="IPortfolioConstructionModel"/> implementation being used.
+        /// caused by the IPortfolioConstructionModel implementation being used.
         /// For example rounding errors, math operations</remarks>
         public decimal MaxAbsolutePortfolioTargetPercentage { get; set; }
 
@@ -36,9 +47,15 @@ namespace QuantConnect
         /// The absolute minimum valid total portfolio value target percentage
         /// </summary>
         /// <remarks>This setting is currently being used to filter out undesired target percent values,
-        /// caused by the <see cref="IPortfolioConstructionModel"/> implementation being used.
+        /// caused by the IPortfolioConstructionModel implementation being used.
         /// For example rounding errors, math operations</remarks>
         public decimal MinAbsolutePortfolioTargetPercentage { get; set; }
+
+        /// <summary>
+        /// Configurable minimum order margin portfolio percentage to ignore bad orders, orders with unrealistic small sizes
+        /// </summary>
+        /// <remarks>Default value is 0. This setting is useful to avoid small trading noise when using SetHoldings</remarks>
+        public decimal MinimumOrderMarginPortfolioPercentage { get; set; }
 
         /// <summary>
         /// Gets/sets the maximum number of concurrent market data subscriptions available
@@ -52,6 +69,13 @@ namespace QuantConnect
         /// <summary>
         /// Gets/sets the SetHoldings buffers value.
         /// The buffer is used for orders not to be rejected due to volatility when using SetHoldings and CalculateOrderQuantity
+        /// </summary>
+        public decimal FreePortfolioValue { get; set; }
+
+        /// <summary>
+        /// Gets/sets the SetHoldings buffers value percentage.
+        /// This percentage will be used to set the <see cref="FreePortfolioValue"/>
+        /// based on the <see cref="SecurityPortfolioManager.TotalPortfolioValue"/>
         /// </summary>
         public decimal FreePortfolioValuePercentage { get; set; }
 
@@ -79,6 +103,7 @@ namespace QuantConnect
             // default is unlimited
             DataSubscriptionLimit = int.MaxValue;
             LiquidateEnabled = true;
+            FreePortfolioValue = 250;
             FreePortfolioValuePercentage = 0.0025m;
             StalePriceTimeSpan = Time.OneHour;
             MaxAbsolutePortfolioTargetPercentage = 1000000000;

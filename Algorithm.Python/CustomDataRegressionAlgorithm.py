@@ -1,4 +1,4 @@
-﻿# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
 # Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,19 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from clr import AddReference
-AddReference("System.Core")
-AddReference("QuantConnect.Common")
-AddReference("QuantConnect.Algorithm")
-
-from System import *
-from QuantConnect import *
-from QuantConnect.Algorithm import QCAlgorithm
-from QuantConnect.Data import SubscriptionDataSource
-from QuantConnect.Python import PythonData
-
-from datetime import datetime
-import json
+from AlgorithmImports import *
 
 ### <summary>
 ### Regression test to demonstrate importing and trading on custom data.
@@ -43,7 +31,6 @@ class CustomDataRegressionAlgorithm(QCAlgorithm):
 
         resolution = Resolution.Second if self.LiveMode else Resolution.Daily
         self.AddData(Bitcoin, "BTC", resolution)
-        self.SetWarmup(1)
 
     def OnData(self, data):
         if not self.Portfolio.Invested:
@@ -100,6 +87,7 @@ class Bitcoin(PythonData):
         try:
             data = line.split(',')
             coin.Time = datetime.strptime(data[0], "%Y-%m-%d")
+            coin.EndTime = coin.Time + timedelta(days=1)
             coin.Value = float(data[4])
             coin["Open"] = float(data[1])
             coin["High"] = float(data[2])

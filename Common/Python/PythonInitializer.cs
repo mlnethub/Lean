@@ -14,8 +14,12 @@
  *
 */
 
+using System;
+using System.Linq;
 using Python.Runtime;
 using QuantConnect.Logging;
+using System.Collections.Generic;
+using QuantConnect.Util;
 
 namespace QuantConnect.Python
 {
@@ -25,14 +29,17 @@ namespace QuantConnect.Python
     public static class PythonInitializer
     {
         // Used to allow multiple Python unit and regression tests to be run in the same test run
-        private static bool _isBeginAllowThreadsCalled;
+        private static bool _isInitialized;
+
+        // Used to hold pending path additions before Initialize is called
+        private static List<string> _pendingPathAdditions = new List<string>();
 
         /// <summary>
         /// Initialize the Python.NET library
         /// </summary>
         public static void Initialize()
         {
-            if (!_isBeginAllowThreadsCalled)
+            if (!_isInitialized)
             {
                 Log.Trace("PythonInitializer.Initialize(): start...");
                 PythonEngine.Initialize();
@@ -40,8 +47,41 @@ namespace QuantConnect.Python
                 // required for multi-threading usage
                 PythonEngine.BeginAllowThreads();
 
-                _isBeginAllowThreadsCalled = true;
+                _isInitialized = true;
                 Log.Trace("PythonInitializer.Initialize(): ended");
+
+                AddPythonPaths(new []{ Environment.CurrentDirectory });
+            }
+        }
+
+        /// <summary>
+        /// Adds directories to the python path at runtime
+        /// </summary>
+        public static void AddPythonPaths(IEnumerable<string> paths)
+        {
+            if (paths == null)
+            {
+                return;
+            }
+
+            if (_isInitialized)
+            {
+                using (Py.GIL())
+                {
+                    _pendingPathAdditions.AddRange(paths);
+
+                    // Generate the python code to add these to our path and execute
+                    var code = string.Join(";", _pendingPathAdditions.Select(s => $"sys.path.append('{s}')"))
+                        .Replace('\\', '/');
+
+                    PythonEngine.Exec($"import sys;{code}");
+                    _pendingPathAdditions.Clear();
+                }
+            }
+            else
+            {
+                // Add these paths to our pending additions list
+                _pendingPathAdditions.AddRange(paths);
             }
         }
     }

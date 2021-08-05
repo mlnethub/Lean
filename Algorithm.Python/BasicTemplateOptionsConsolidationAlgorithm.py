@@ -11,19 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from clr import AddReference
-AddReference("System")
-AddReference("QuantConnect.Algorithm")
-AddReference("QuantConnect.Common")
-
-from System import *
-from QuantConnect import *
-from QuantConnect.Data import *
-from QuantConnect.Algorithm import *
-from QuantConnect.Indicators import *
-from QuantConnect.Securities import *
-from QuantConnect.Data.Consolidators import *
-from datetime import timedelta
+from AlgorithmImports import *
 
 ### <summary>
 ### A demonstration of consolidating options data into larger bars for your algorithm.
@@ -40,7 +28,11 @@ class BasicTemplateOptionsConsolidationAlgorithm(QCAlgorithm):
 
         # Subscribe and set our filter for the options chain
         option = self.AddOption('SPY')
-        option.SetFilter(-2, 2, timedelta(0), timedelta(180))
+        # set our strike/expiry filter for this option chain
+        # SetFilter method accepts timedelta objects or integer for days.
+        # The following statements yield the same filtering criteria
+        option.SetFilter(-2, +2, 0, 180)
+        # option.SetFilter(-2, +2, timedelta(0), timedelta(180))
         self.consolidators = dict()
     
     def OnData(self,slice):

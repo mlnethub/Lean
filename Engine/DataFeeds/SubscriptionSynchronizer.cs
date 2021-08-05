@@ -94,8 +94,8 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                 Dictionary<Universe, BaseDataCollection> universeData = null; // lazy construction for performance
                 var universeDataForTimeSliceCreate = new Dictionary<Universe, BaseDataCollection>();
 
-                _frontierTimeProvider.SetCurrentTimeUtc(_timeProvider.GetUtcNow());
-                var frontierUtc = _frontierTimeProvider.GetUtcNow();
+                var frontierUtc = _timeProvider.GetUtcNow();
+                _frontierTimeProvider.SetCurrentTimeUtc(frontierUtc);
 
                 SecurityChanges newChanges;
                 do
@@ -176,7 +176,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                                     }
                                     else
                                     {
-                                        collection = new BaseDataCollection(frontierUtc, subscription.Configuration.Symbol, packetData);
+                                        collection = new BaseDataCollection(frontierUtc, frontierUtc, subscription.Configuration.Symbol, packetData);
                                     }
 
                                     if (universeData == null)
@@ -191,6 +191,18 @@ namespace QuantConnect.Lean.Engine.DataFeeds
                         if (subscription.IsUniverseSelectionSubscription
                             && subscription.Universes.Single().DisposeRequested)
                         {
+                            var universe = subscription.Universes.Single();
+                            // check if a universe selection isn't already scheduled for this disposed universe
+                            if (universeData == null || !universeData.ContainsKey(universe))
+                            {
+                                if (universeData == null)
+                                {
+                                    universeData = new Dictionary<Universe, BaseDataCollection>();
+                                }
+                                // we force trigger one last universe selection for this disposed universe, so it deselects all subscriptions it added
+                                universeData[universe] = new BaseDataCollection(frontierUtc, subscription.Configuration.Symbol);
+                            }
+
                             // we need to do this after all usages of subscription.Universes
                             OnSubscriptionFinished(subscription);
                         }
@@ -237,8 +249,7 @@ namespace QuantConnect.Lean.Engine.DataFeeds
         /// </summary>
         protected virtual void OnSubscriptionFinished(Subscription subscription)
         {
-            var handler = SubscriptionFinished;
-            if (handler != null) handler(this, subscription);
+            SubscriptionFinished?.Invoke(this, subscription);
         }
 
         /// <summary>

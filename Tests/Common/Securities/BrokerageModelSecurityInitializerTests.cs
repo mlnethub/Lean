@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -65,15 +65,18 @@ namespace QuantConnect.Tests.Common.Securities
         {
             _algo =  new QCAlgorithm();
             var historyProvider = new SubscriptionDataReaderHistoryProvider();
+
             historyProvider.Initialize(
                 new HistoryProviderInitializeParameters(
                     null,
                     null,
-                    new DefaultDataProvider(),
+                    TestGlobals.DataProvider,
                     new SingleEntryDataCacheProvider(new DefaultDataProvider()),
-                    new LocalDiskMapFileProvider(),
-                    new LocalDiskFactorFileProvider(),
-                    null
+                    TestGlobals.MapFileProvider,
+                    TestGlobals.FactorFileProvider,
+                    null,
+                    true,
+                    new DataPermissionManager()
                 )
             );
 

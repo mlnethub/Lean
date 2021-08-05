@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -442,7 +442,14 @@ namespace QuantConnect.Statistics
         /// <returns>Decimal fraction for annual compounding performance</returns>
         public static decimal CompoundingAnnualPerformance(decimal startingCapital, decimal finalCapital, decimal years)
         {
-            return (years == 0 ? 0d : Math.Pow((double)finalCapital / (double)startingCapital, 1 / (double)years) - 1).SafeDecimalCast();
+            if (years == 0 || startingCapital == 0)
+            {
+                return 0;
+            }
+            var power = 1 / (double)years;
+            var baseNumber = (double)finalCapital / (double)startingCapital;
+            var result = Math.Pow(baseNumber, power) - 1;
+            return result.IsNaNOrInfinity() ? 0 : result.SafeDecimalCast();
         }
 
         /// <summary>
@@ -454,7 +461,7 @@ namespace QuantConnect.Statistics
         /// <returns>Double annual performance percentage</returns>
         public static double AnnualPerformance(List<double> performance, double tradingDaysPerYear = 252)
         {
-            return performance.Average() * tradingDaysPerYear;
+            return Math.Pow((performance.Average() + 1), tradingDaysPerYear) - 1;
         }
 
         /// <summary>
@@ -514,10 +521,23 @@ namespace QuantConnect.Statistics
         /// <remarks>If algo = benchmark, TEV = 0</remarks>
         /// <param name="algoPerformance">Double collection of algorithm daily performance values</param>
         /// <param name="benchmarkPerformance">Double collection of benchmark daily performance values</param>
+        /// <param name="tradingDaysPerYear">Number of trading days per year</param>
         /// <returns>Value for tracking error</returns>
-        public static double TrackingError(List<double> algoPerformance, List<double> benchmarkPerformance)
+        public static double TrackingError(List<double> algoPerformance, List<double> benchmarkPerformance, double tradingDaysPerYear = 252)
         {
-            return Math.Sqrt(AnnualVariance(algoPerformance) - 2 * Correlation.Pearson(algoPerformance, benchmarkPerformance) * AnnualStandardDeviation(algoPerformance) * AnnualStandardDeviation(benchmarkPerformance) + AnnualVariance(benchmarkPerformance));
+            // Un-equal lengths will blow up other statistics, but this will handle the case here
+            if (algoPerformance.Count() != benchmarkPerformance.Count())
+            {
+                return 0.0;
+            }
+
+            var performanceDifference = new List<double>();
+            for (var i = 0; i < algoPerformance.Count(); i++)
+            {
+                performanceDifference.Add(algoPerformance[i] - benchmarkPerformance[i]);
+            }
+
+            return Math.Sqrt(AnnualVariance(performanceDifference, tradingDaysPerYear));
         }
 
 
@@ -600,6 +620,25 @@ namespace QuantConnect.Statistics
             // we don't annualize it
             return standardDeviation.IsNaNOrZero() ? 0 : performanceAverage / standardDeviation;
         }
+
+        /// <summary>
+        /// Calculate the drawdown between a high and current value
+        /// </summary>
+        /// <param name="current">Current value</param>
+        /// <param name="high">Latest maximum</param>
+        /// <param name="roundingDecimals">Digits to round the result too</param>
+        /// <returns>Drawdown percentage</returns>
+        public static decimal DrawdownPercent(decimal current, decimal high, int roundingDecimals = 2)
+        {
+            if (high == 0)
+            {
+                throw new ArgumentException("High value must not be 0");
+            }
+
+            var drawdownPercentage = ((current / high) - 1) * 100;
+            return Math.Round(drawdownPercentage, roundingDecimals);
+        }
+
     } // End of Statistics
 
 } // End of Namespace

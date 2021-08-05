@@ -42,11 +42,25 @@ namespace QuantConnect.Securities
     /// </remarks>
     public class Security : ISecurityPrice
     {
-        private readonly ICurrencyConverter _currencyConverter;
-
         private LocalTimeKeeper _localTimeKeeper;
-        // using concurrent bag to avoid list enumeration threading issues
+
+        /// <summary>
+        /// Collection of SubscriptionDataConfigs for this security.
+        /// Uses concurrent bag to avoid list enumeration threading issues
+        /// </summary>
         protected readonly ConcurrentBag<SubscriptionDataConfig> SubscriptionsBag;
+
+        /// <summary>
+        /// This securities <see cref="IShortableProvider"/>
+        /// </summary>
+        protected IShortableProvider ShortableProvider { get; private set; }
+
+        /// <summary>
+        /// A null security leverage value
+        /// </summary>
+        /// <remarks>This value is used to determine when the
+        /// <see cref="SecurityInitializer"/> leverage is used</remarks>
+        public const decimal NullLeverage = 0;
 
         /// <summary>
         /// Gets all the subscriptions for this security
@@ -121,7 +135,7 @@ namespace QuantConnect.Securities
         /// <summary>
         /// Gets or sets whether or not this security should be considered tradable
         /// </summary>
-        public bool IsTradable
+        public virtual bool IsTradable
         {
             get; set;
         }
@@ -362,8 +376,6 @@ namespace QuantConnect.Securities
                 throw new ArgumentException("symbolProperties.QuoteCurrency must match the quoteCurrency.Symbol");
             }
 
-            this._currencyConverter = currencyConverter;
-
             Symbol = symbol;
             SubscriptionsBag = new ConcurrentBag<SubscriptionDataConfig>();
             QuoteCurrency = quoteCurrency;
@@ -601,20 +613,6 @@ namespace QuantConnect.Securities
         }
 
         /// <summary>
-        /// Update any security properties based on the latest realtime data and time
-        /// </summary>
-        /// <param name="data">New data packet from LEAN</param>
-        public void SetRealTimePrice(BaseData data)
-        {
-            //Add new point to cache:
-            if (data == null) return;
-            Cache.AddData(data);
-
-            if (data is OpenInterest || data.Price == 0m) return;
-            Holdings.UpdateMarketPrice(Price);
-        }
-
-        /// <summary>
         /// Returns true if the security contains at least one subscription that represents custom data
         /// </summary>
         [Obsolete("This method is obsolete. Use the 'SubscriptionDataConfig' exposed by" +
@@ -635,9 +633,10 @@ namespace QuantConnect.Securities
         /// <param name="leverage">Leverage for this asset</param>
         public void SetLeverage(decimal leverage)
         {
-            if (Symbol.ID.SecurityType == SecurityType.Future ||
-                Symbol.ID.SecurityType == SecurityType.Option)
+            if (Symbol.ID.SecurityType == SecurityType.Future || Symbol.ID.SecurityType.IsOption())
+            {
                 return;
+            }
 
             BuyingPowerModel.SetLeverage(this, leverage);
         }
@@ -778,6 +777,15 @@ namespace QuantConnect.Securities
         }
 
         /// <summary>
+        /// Set Shortable Provider for this <see cref="Security"/>
+        /// </summary>
+        /// <param name="shortableProvider">Provider to use</param>
+        public void SetShortableProvider(IShortableProvider shortableProvider)
+        {
+            ShortableProvider = shortableProvider;
+        }
+
+        /// <summary>
         /// Returns a string that represents the current object.
         /// </summary>
         /// <returns>
@@ -816,7 +824,11 @@ namespace QuantConnect.Securities
             UpdateSubscriptionProperties();
         }
 
-        private void UpdateConsumersMarketPrice(BaseData data)
+        /// <summary>
+        /// Update market price of this Security
+        /// </summary>
+        /// <param name="data">Data to pull price from</param>
+        protected virtual void UpdateConsumersMarketPrice(BaseData data)
         {
             if (data is OpenInterest || data.Price == 0m) return;
             Holdings.UpdateMarketPrice(Price);

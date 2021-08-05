@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -19,28 +19,54 @@ using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using QuantConnect.Lean.Engine.DataFeeds;
+using QuantConnect.Scheduling;
+using QuantConnect.Util;
 
 namespace QuantConnect.Tests.Common
 {
     [TestFixture]
     public class IsolatorLimitResultProviderTests
     {
+        private TimeMonitor _timeMonitor;
+
+        [OneTimeSetUp]
+        public void Setup()
+        {
+            _timeMonitor = new TimeMonitor(monitorIntervalMs:3);
+        }
+
+        [OneTimeTearDown]
+        public void TearDown()
+        {
+            _timeMonitor.DisposeSafely();
+        }
+
         [Test]
         public void ConsumeRequestsAdditionalTimeAfterOneMinute()
         {
             var minuteElapsed = new ManualResetEvent(false);
-            var consumeCompleted = new ManualResetEvent(false);
+            var consumeStarted = new ManualResetEvent(false);
 
-            Action code = () => minuteElapsed.WaitOne();
+            Action code = () =>
+            {
+                if (!minuteElapsed.WaitOne(10000))
+                {
+                    throw new TimeoutException("minuteElapsed");
+                }
+            };
             var provider = new FakeIsolatorLimitResultProvider();
             var timeProvider = new ManualTimeProvider(new DateTime(2000, 01, 01));
 
-            Task.Run(() =>
+            var consumeCompleted = Task.Run(() =>
             {
-                var name = nameof(ConsumeRequestsAdditionalTimeAfterOneMinute);
-                provider.Consume(timeProvider, code);
-                consumeCompleted.Set();
+                consumeStarted.Set();
+                provider.Consume(timeProvider, code, _timeMonitor);
             });
+
+            if (!consumeStarted.WaitOne(50))
+            {
+                Assert.Fail("Consume should have started.");
+            }
 
             Thread.Sleep(15);
             timeProvider.Advance(TimeSpan.FromSeconds(45));
@@ -48,16 +74,25 @@ namespace QuantConnect.Tests.Common
             Assert.AreEqual(0, provider.Invocations.Count);
 
             timeProvider.Advance(TimeSpan.FromSeconds(15));
-            Thread.Sleep(15);
+
+            int i = 0;
+            while (provider.Invocations.Count == 0 && i++ < 3)
+            {
+                Thread.Sleep(15);
+            }
 
             minuteElapsed.Set();
-            if (!consumeCompleted.WaitOne(50))
+            if (!consumeCompleted.Wait(50))
             {
                 Assert.Fail("Consume should have returned.");
             }
 
             Assert.AreEqual(1, provider.Invocations.Count);
             Assert.AreEqual(1, provider.Invocations[0]);
+
+            // give time to the monitor to register the time consumer ended
+            Thread.Sleep(50);
+            Assert.AreEqual(0, _timeMonitor.Count);
         }
 
         [Test]
@@ -71,9 +106,13 @@ namespace QuantConnect.Tests.Common
                 timeProvider.Advance(TimeSpan.FromMinutes(.99));
                 Thread.Sleep(5);
             };
-            provider.Consume(timeProvider, code);
+            provider.Consume(timeProvider, code, _timeMonitor);
 
             Assert.IsEmpty(provider.Invocations);
+
+            // give time to the monitor to register the time consumer ended
+            Thread.Sleep(50);
+            Assert.AreEqual(0, _timeMonitor.Count);
         }
 
         [Test]
@@ -83,6 +122,8 @@ namespace QuantConnect.Tests.Common
             var provider = new FakeIsolatorLimitResultProvider();
             Action code = () =>
             {
+                // lets give the monitor time to register the initial time
+                Thread.Sleep(50);
                 for (int i = 0; i < 4; i++)
                 {
                     timeProvider.AdvanceSeconds(45);
@@ -91,10 +132,14 @@ namespace QuantConnect.Tests.Common
                 }
             };
 
-            provider.Consume(timeProvider, code);
+            provider.Consume(timeProvider, code, _timeMonitor);
 
             Assert.AreEqual(3, provider.Invocations.Count);
             Assert.IsTrue(provider.Invocations.TrueForAll(invoc => invoc == 1));
+
+            // give time to the monitor to register the time consumer ended
+            Thread.Sleep(50);
+            Assert.AreEqual(0, _timeMonitor.Count);
         }
 
         private class FakeIsolatorLimitResultProvider : IIsolatorLimitResultProvider

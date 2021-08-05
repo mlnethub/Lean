@@ -1,4 +1,4 @@
-﻿# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
 # Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,16 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from clr import AddReference
-AddReference("System")
-AddReference("QuantConnect.Algorithm")
-AddReference("QuantConnect.Common")
-
-from System import *
-from QuantConnect import *
-from QuantConnect.Algorithm import *
-from QuantConnect.Orders import *
-from QuantConnect.Data import *
+from AlgorithmImports import *
 
 ### <summary>
 ### In this algorithm we submit/update/cancel each order type
@@ -223,7 +214,7 @@ class OrderTicketDemoAlgorithm(QCAlgorithm):
             # so make the limit price a little higher than the stop price
 
             close = self.Securities[self.spy.Value].Close
-            newTicket = self.StopLimitOrder(self.spy, 10, close * 1.001, close * 1.0025)
+            newTicket = self.StopLimitOrder(self.spy, 10, close * 1.001, close - 0.03)
             self.__openStopLimitOrders.append(newTicket)
 
             # a short stop is triggered when the price falls below the
@@ -232,7 +223,7 @@ class OrderTicketDemoAlgorithm(QCAlgorithm):
             # gauranteed to get at least the limit price for our fills,
             # so make the limit price a little softer than the stop price
 
-            newTicket = self.StopLimitOrder(self.spy, -10, close * .999, close * 0.9975)
+            newTicket = self.StopLimitOrder(self.spy, -10, close * .999, close + 0.03)
             self.__openStopLimitOrders.append(newTicket)
 
         # when we submitted new stop limit orders we placed them into this list,

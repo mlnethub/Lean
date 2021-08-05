@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -52,15 +52,15 @@ namespace QuantConnect.Tests.Algorithm
         }
 
         /// <summary>
-        /// The default market for FOREX should be FXCM
+        /// The default market for FOREX should be Oanda
         /// </summary>
         [Test]
-        public void DefaultBrokerageModel_IsFXCM_ForForex()
+        public void DefaultBrokerageModel_IsOanda_ForForex()
         {
             var forex = _algo.AddForex(ForexSym);
 
 
-            Assert.IsTrue(forex.Symbol.ID.Market == Market.FXCM);
+            Assert.IsTrue(forex.Symbol.ID.Market == Market.Oanda);
             Assert.IsTrue(_algo.BrokerageModel.GetType() == typeof(DefaultBrokerageModel));
         }
 
@@ -82,9 +82,7 @@ namespace QuantConnect.Tests.Algorithm
             {
                 var model = PythonEngine.ModuleFromString("testModule",
                     @"
-from clr import AddReference
-AddReference(""QuantConnect.Common"")
-from QuantConnect.Brokerages import *
+from AlgorithmImports import *
 
 class Test(AlphaStreamsBrokerageModel):
     def GetLeverage(self, security):
@@ -147,14 +145,14 @@ class Test(AlphaStreamsBrokerageModel):
         [Test]
         public void BrokerageModel_CanBeSpecifiedWith_AddForex()
         {
-            var forex = _algo.AddForex(ForexSym, Resolution.Minute, Market.Oanda);
+            var forex = _algo.AddForex(ForexSym, Resolution.Minute, Market.FXCM);
 
             string brokerage = GetDefaultBrokerageForSecurityType(SecurityType.Forex);
 
 
-            Assert.IsTrue(forex.Symbol.ID.Market == Market.Oanda);
+            Assert.IsTrue(forex.Symbol.ID.Market == Market.FXCM);
             Assert.IsTrue(_algo.BrokerageModel.GetType() == typeof(DefaultBrokerageModel));
-            Assert.IsTrue(brokerage == Market.FXCM);  // Doesn't change brokerage defined in BrokerageModel.DefaultMarkets
+            Assert.IsTrue(brokerage == Market.Oanda);  // Doesn't change brokerage defined in BrokerageModel.DefaultMarkets
         }
 
         /// <summary>
@@ -194,8 +192,8 @@ class Test(AlphaStreamsBrokerageModel):
             var oandaSecurity = _algo.AddSecurity(SecurityType.Forex, "EURUSD", Resolution.Minute, Market.Oanda, true, 1m, true);
 
             Assert.AreEqual(2, _algo.Securities.Count);
-            Assert.AreEqual(Market.FXCM, _algo.Securities.First().Key.ID.Market);
-            Assert.AreEqual(Market.Oanda, _algo.Securities.Last().Key.ID.Market);
+            Assert.IsNotNull(_algo.Securities.Single(pair => pair.Key.ID.Market == Market.FXCM));
+            Assert.IsNotNull(_algo.Securities.Single(pair => pair.Key.ID.Market == Market.Oanda));
             Assert.AreEqual(Market.FXCM, fxcmSecurity.Symbol.ID.Market);
             Assert.AreEqual(Market.Oanda, oandaSecurity.Symbol.ID.Market);
         }
@@ -207,8 +205,8 @@ class Test(AlphaStreamsBrokerageModel):
             var oandaSecurity = _algo.AddForex("EURUSD", Resolution.Minute, Market.Oanda);
 
             Assert.AreEqual(2, _algo.Securities.Count);
-            Assert.AreEqual(Market.FXCM, _algo.Securities.First().Key.ID.Market);
-            Assert.AreEqual(Market.Oanda, _algo.Securities.Last().Key.ID.Market);
+            Assert.IsNotNull(_algo.Securities.Single(pair => pair.Key.ID.Market == Market.FXCM));
+            Assert.IsNotNull(_algo.Securities.Single(pair => pair.Key.ID.Market == Market.Oanda));
             Assert.AreEqual(Market.FXCM, fxcmSecurity.Symbol.ID.Market);
             Assert.AreEqual(Market.Oanda, oandaSecurity.Symbol.ID.Market);
         }

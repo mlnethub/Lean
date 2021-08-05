@@ -74,14 +74,14 @@ namespace QuantConnect.Algorithm.CSharp
             };
         }
 
-        // sort the data by P/E ratio and take the top 'NumberOfSymbolsFine'
+        // sort the data by market capitalization and take the top 'NumberOfSymbolsFine'
         public IEnumerable<Symbol> FineSelectionFunction(IEnumerable<FineFundamental> fine)
         {
-            // sort descending by P/E ratio
-            var sortedByPeRatio = fine.OrderByDescending(x => x.ValuationRatios.PERatio);
+            // sort descending by market capitalization
+            var sortedByMarketCap = fine.OrderByDescending(x => x.MarketCap);
 
             // take the top entries from our sorted collection
-            var topFine = sortedByPeRatio.Take(NumberOfSymbolsFine);
+            var topFine = sortedByMarketCap.Take(NumberOfSymbolsFine);
 
             // we need to return only the symbol objects
             return topFine.Select(x => x.Symbol);
@@ -164,22 +164,45 @@ namespace QuantConnect.Algorithm.CSharp
             {"Total Trades", "2"},
             {"Average Win", "1.16%"},
             {"Average Loss", "0%"},
-            {"Compounding Annual Return", "32.515%"},
+            {"Compounding Annual Return", "32.505%"},
             {"Drawdown", "1.400%"},
             {"Expectancy", "0"},
-            {"Net Profit", "1.164%"},
-            {"Sharpe Ratio", "2.631"},
+            {"Net Profit", "1.163%"},
+            {"Sharpe Ratio", "2.876"},
+            {"Probabilistic Sharpe Ratio", "64.984%"},
             {"Loss Rate", "0%"},
             {"Win Rate", "100%"},
             {"Profit-Loss Ratio", "0"},
-            {"Alpha", "0.338"},
-            {"Beta", "0.435"},
-            {"Annual Standard Deviation", "0.094"},
-            {"Annual Variance", "0.009"},
-            {"Information Ratio", "4.497"},
-            {"Tracking Error", "0.102"},
-            {"Treynor Ratio", "0.568"},
-            {"Total Fees", "$2.00"}
+            {"Alpha", "0.237"},
+            {"Beta", "-0.188"},
+            {"Annual Standard Deviation", "0.089"},
+            {"Annual Variance", "0.008"},
+            {"Information Ratio", "2.409"},
+            {"Tracking Error", "0.148"},
+            {"Treynor Ratio", "-1.358"},
+            {"Total Fees", "$2.00"},
+            {"Estimated Strategy Capacity", "$49000000.00"},
+            {"Lowest Capacity Asset", "IBM R735QTJ8XC9X"},
+            {"Fitness Score", "0.076"},
+            {"Kelly Criterion Estimate", "0"},
+            {"Kelly Criterion Probability Value", "0"},
+            {"Sortino Ratio", "27.328"},
+            {"Return Over Maximum Drawdown", "24.002"},
+            {"Portfolio Turnover", "0.076"},
+            {"Total Insights Generated", "0"},
+            {"Total Insights Closed", "0"},
+            {"Total Insights Analysis Completed", "0"},
+            {"Long Insight Count", "0"},
+            {"Short Insight Count", "0"},
+            {"Long/Short Ratio", "100%"},
+            {"Estimated Monthly Alpha Value", "$0"},
+            {"Total Accumulated Estimated Alpha Value", "$0"},
+            {"Mean Population Estimated Insight Value", "$0"},
+            {"Mean Population Direction", "0%"},
+            {"Mean Population Magnitude", "0%"},
+            {"Rolling Averaged Population Direction", "0%"},
+            {"Rolling Averaged Population Magnitude", "0%"},
+            {"OrderListHash", "159887a90516df8ba8e8d35b9c30b227"}
         };
     }
 }

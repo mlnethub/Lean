@@ -1,4 +1,4 @@
-﻿# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
 # Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,22 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from clr import AddReference
-AddReference("System.Core")
-AddReference("System.Collections")
-AddReference("QuantConnect.Algorithm")
-AddReference("QuantConnect.Common")
-
-from System import *
-from System.Linq import *
-from QuantConnect import *
-from QuantConnect.Algorithm import *
-from QuantConnect.Data import *
-from QuantConnect.Orders import *
-from QuantConnect.Securities import *
-from QuantConnect.Util import *
+from AlgorithmImports import *
 from math import copysign
-from datetime import datetime
 
 ### <summary>
 ### Provides a regression baseline focused on updating orders
@@ -96,7 +82,7 @@ class UpdateOrderRegressionAlgorithm(QCAlgorithm):
                     self.Log("TICKET:: {0}".format(ticket))
                     updateOrderFields = UpdateOrderFields()
                     updateOrderFields.Quantity = ticket.Quantity + copysign(self.delta_quantity, self.quantity)
-                    updateOrderFields.Tag = "Change quantity: {0}".format(self.Time)
+                    updateOrderFields.Tag = "Change quantity: {0}".format(self.Time.day)
                     ticket.Update(updateOrderFields)
 
             elif self.Time.day > 13 and self.Time.day < 20:
@@ -105,12 +91,12 @@ class UpdateOrderRegressionAlgorithm(QCAlgorithm):
                     updateOrderFields = UpdateOrderFields()
                     updateOrderFields.LimitPrice = self.security.Price*(1 - copysign(self.limit_percentage_delta, ticket.Quantity))
                     updateOrderFields.StopPrice = self.security.Price*(1 + copysign(self.stop_percentage_delta, ticket.Quantity))
-                    updateOrderFields.Tag = "Change prices: {0}".format(self.Time)
+                    updateOrderFields.Tag = "Change prices: {0}".format(self.Time.day)
                     ticket.Update(updateOrderFields)
             else:
                 if len(ticket.UpdateRequests) == 2 and ticket.Status is not OrderStatus.Filled:
                     self.Log("TICKET:: {0}".format(ticket))
-                    ticket.Cancel("{0} and is still open!".format(self.Time))
+                    ticket.Cancel("{0} and is still open!".format(self.Time.day))
                     self.Log("CANCELLED:: {0}".format(ticket.CancelRequest))
 
 

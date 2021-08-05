@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -32,29 +32,7 @@ namespace QuantConnect.Securities
         {
             var context = new ReservedBuyingPowerForPositionParameters(security);
             var reservedBuyingPower = model.GetReservedBuyingPowerForPosition(context);
-            return reservedBuyingPower.Value;
-        }
-
-        /// <summary>
-        /// Gets the buying power available for a trade
-        /// </summary>
-        /// <param name="model">The <see cref="IBuyingPowerModel"/></param>
-        /// <param name="portfolio">The algorithm's portfolio</param>
-        /// <param name="security">The security to be traded</param>
-        /// <param name="direction">The direction of the trade</param>
-        /// <returns>The buying power available for the trade</returns>
-        public static decimal GetBuyingPower(
-            this IBuyingPowerModel model,
-            SecurityPortfolioManager portfolio,
-            Security security,
-            OrderDirection direction
-            )
-        {
-            var context = new BuyingPowerParameters(portfolio, security, direction);
-            var buyingPower = model.GetBuyingPower(context);
-
-            // existing implementations assume certain non-account currency units, so return raw value
-            return buyingPower.Value;
+            return reservedBuyingPower.AbsoluteUsedBuyingPower;
         }
 
         /// <summary>
@@ -84,17 +62,64 @@ namespace QuantConnect.Securities
         /// <param name="portfolio">The algorithm's portfolio</param>
         /// <param name="security">The security to be traded</param>
         /// <param name="target">The target percent holdings</param>
+        /// <param name="minimumOrderMarginPortfolioPercentage">Configurable minimum order margin portfolio percentage to ignore orders with unrealistic small sizes</param>
         /// <returns>Returns the maximum allowed market order quantity and if zero, also the reason</returns>
-        public static GetMaximumOrderQuantityForTargetValueResult GetMaximumOrderQuantityForTargetValue(
+        public static GetMaximumOrderQuantityResult GetMaximumOrderQuantityForTargetBuyingPower(
             this IBuyingPowerModel model,
             SecurityPortfolioManager portfolio,
             Security security,
-            decimal target
+            decimal target,
+            decimal minimumOrderMarginPortfolioPercentage
             )
         {
-            var parameters = new GetMaximumOrderQuantityForTargetValueParameters(portfolio, security, target);
+            var parameters = new GetMaximumOrderQuantityForTargetBuyingPowerParameters(portfolio, security, target, minimumOrderMarginPortfolioPercentage);
 
-            return model.GetMaximumOrderQuantityForTargetValue(parameters);
+            return model.GetMaximumOrderQuantityForTargetBuyingPower(parameters);
+        }
+
+        /// <summary>
+        /// Gets the buying power available for a trade
+        /// </summary>
+        /// <param name="model">The <see cref="IBuyingPowerModel"/></param>
+        /// <param name="portfolio">The algorithm's portfolio</param>
+        /// <param name="security">The security to be traded</param>
+        /// <param name="direction">The direction of the trade</param>
+        /// <returns>The buying power available for the trade</returns>
+        public static decimal GetBuyingPower(
+            this IBuyingPowerModel model,
+            SecurityPortfolioManager portfolio,
+            Security security,
+            OrderDirection direction
+        )
+        {
+            var context = new BuyingPowerParameters(portfolio, security, direction);
+            var buyingPower = model.GetBuyingPower(context);
+
+            // existing implementations assume certain non-account currency units, so return raw value
+            return buyingPower.Value;
+        }
+
+        /// <summary>
+        /// Gets the margin currently allocated to the specified holding
+        /// </summary>
+        /// <param name="model">The buying power model</param>
+        /// <param name="security">The security</param>
+        /// <returns>The maintenance margin required for the provided holdings quantity/cost/value</returns>
+        public static decimal GetMaintenanceMargin(this IBuyingPowerModel model, Security security)
+        {
+            return model.GetMaintenanceMargin(MaintenanceMarginParameters.ForCurrentHoldings(security));
+        }
+
+        /// <summary>
+        /// Gets the margin currently allocated to the specified holding
+        /// </summary>
+        /// <param name="model">The buying power model</param>
+        /// <param name="security">The security</param>
+        /// <param name="quantity">The quantity of shares</param>
+        /// <returns>The initial margin required for the provided security and quantity</returns>
+        public static decimal GetInitialMarginRequirement(this IBuyingPowerModel model, Security security, decimal quantity)
+        {
+            return model.GetInitialMarginRequirement(new InitialMarginParameters(security, quantity));
         }
     }
 }

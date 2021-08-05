@@ -103,6 +103,11 @@ namespace QuantConnect.Util
                     try
                     {
                         var key = SecurityDatabaseKey.Parse(entry.Key);
+                        if (key == null)
+                        {
+                            continue;
+                        }
+
                         entries[key] = entry.Value.Convert();
                     }
                     catch (Exception err)
@@ -210,6 +215,8 @@ namespace QuantConnect.Util
                 SetSegmentsForDay(hours, DayOfWeek.Friday, out Friday);
                 SetSegmentsForDay(hours, DayOfWeek.Saturday, out Saturday);
                 Holidays = hours.Holidays.Select(x => x.ToString("M/d/yyyy", CultureInfo.InvariantCulture)).ToList();
+                EarlyCloses = entry.ExchangeHours.EarlyCloses.ToDictionary(pair => pair.Key.ToString("M/d/yyyy", CultureInfo.InvariantCulture), pair => pair.Value);
+                LateOpens = entry.ExchangeHours.LateOpens.ToDictionary(pair => pair.Key.ToString("M/d/yyyy", CultureInfo.InvariantCulture), pair => pair.Value);
             }
 
             /// <summary>

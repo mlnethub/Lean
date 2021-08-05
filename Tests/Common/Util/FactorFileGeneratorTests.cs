@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -19,6 +19,7 @@ using System.Linq;
 using NUnit.Framework;
 using QuantConnect.Configuration;
 using QuantConnect.Data.Auxiliary;
+using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.ToolBox;
 using QuantConnect.ToolBox.YahooDownloader;
 using QuantConnect.Util;
@@ -42,7 +43,7 @@ namespace QuantConnect.Tests.Common.Util
         private FactorFileGenerator _factorFileGenerator;
         private YahooDataDownloader _yahooDataDownloader;
 
-        [TestFixtureSetUp]
+        [OneTimeSetUp]
         public void Setup()
         {
             _factorFileGenerator = new FactorFileGenerator(_symbol, _dataPath);
@@ -66,7 +67,7 @@ namespace QuantConnect.Tests.Common.Util
             Assert.IsTrue(factorFile.Permtick == _symbol.Value);
         }
 
-        [Test, Ignore("Fix me - GH issue 3435")]
+        [Test]
         public void FactorFiles_CanBeGenerated_Accurately()
         {
             // Arrange
@@ -78,10 +79,13 @@ namespace QuantConnect.Tests.Common.Util
                 throw new ArgumentException("This test requires an already calculated factor file." +
                                             "Try using one of the pre-existing factor files ");
 
-            var originalFactorFileInstance = FactorFile.Read(PermTick, Market);
+            var originalFactorFileInstance = TestGlobals.FactorFileProvider.Get(_symbol);
+
+            // we limit events to the penultimate time in our factor file (last one is 2050)
+            var lastValidRow = originalFactorFileInstance.SortedFactorFileData.Reverse().Skip(1).First();
 
             // Act
-            var newFactorFileInstance = _factorFileGenerator.CreateFactorFile(yahooEvents.ToList());
+            var newFactorFileInstance = _factorFileGenerator.CreateFactorFile(yahooEvents.Where(data => data.Time.AddDays(-1) <= lastValidRow.Key).ToList());
 
             var earliestDate = originalFactorFileInstance.SortedFactorFileData.First().Key;
             var latestDate = originalFactorFileInstance.SortedFactorFileData.Last().Key;

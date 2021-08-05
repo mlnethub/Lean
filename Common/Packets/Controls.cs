@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -14,7 +14,9 @@
  *
 */
 
+using System.IO;
 using Newtonsoft.Json;
+using QuantConnect.Interfaces;
 
 namespace QuantConnect.Packets
 {
@@ -42,10 +44,16 @@ namespace QuantConnect.Packets
         public int TickLimit;
 
         /// <summary>
-        /// Ram allocation for this backtest in MB
+        /// Ram allocation for this algorithm in MB
         /// </summary>
-        [JsonProperty(PropertyName = "iRamAllocation")]
+        [JsonProperty(PropertyName = "iMaxRamAllocation")]
         public int RamAllocation;
+
+        /// <summary>
+        /// CPU allocation for this algorithm
+        /// </summary>
+        [JsonProperty(PropertyName = "dMaxCpuAllocation")]
+        public decimal CpuAllocation;
 
         /// <summary>
         /// The user backtesting log limit
@@ -97,6 +105,37 @@ namespace QuantConnect.Packets
         public LeakyBucketControlParameters TrainingLimits;
 
         /// <summary>
+        /// Limits the total size of storage used by <see cref="IObjectStore"/>
+        /// </summary>
+        [JsonProperty(PropertyName = "storageLimitMB")]
+        public int StorageLimitMB;
+
+        /// <summary>
+        /// Limits the number of files to be held under the <see cref="IObjectStore"/>
+        /// </summary>
+        [JsonProperty(PropertyName = "storageFileCountMB")]
+        public int StorageFileCount;
+
+        /// <summary>
+        /// Holds the permissions for the object store
+        /// </summary>
+        [JsonProperty(PropertyName = "storagePermissions")]
+        public FileAccess StoragePermissions;
+
+        /// <summary>
+        /// The interval over which the <see cref="IObjectStore"/> will persistence the contents of
+        /// the object store
+        /// </summary>
+        [JsonProperty(PropertyName = "persistenceIntervalSeconds")]
+        public int PersistenceIntervalSeconds;
+
+        /// <summary>
+        /// The cost associated with running this job
+        /// </summary>
+        [JsonProperty(PropertyName = "dCreditCost")]
+        public decimal CreditCost;
+
+        /// <summary>
         /// Initializes a new default instance of the <see cref="Controls"/> class
         /// </summary>
         public Controls()
@@ -112,6 +151,10 @@ namespace QuantConnect.Packets
             BacktestingMaxInsights = 10000;
             MaximumDataPointsPerChartSeries = 4000;
             SecondTimeOut = 300;
+            StorageLimitMB = 5;
+            StorageFileCount = 100;
+            PersistenceIntervalSeconds = 5;
+            StoragePermissions = FileAccess.ReadWrite;
 
             // initialize to default leaky bucket values in case they're not specified
             TrainingLimits = new LeakyBucketControlParameters();

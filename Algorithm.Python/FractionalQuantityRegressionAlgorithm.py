@@ -1,4 +1,4 @@
-﻿# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
+# QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
 # Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,23 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from clr import AddReference
-AddReference("System")
+from AlgorithmImports import *
+
 AddReference("NodaTime")
-AddReference("QuantConnect.Algorithm")
-AddReference("QuantConnect.Indicators")
-AddReference("QuantConnect.Common")
-
-from System import *
 from NodaTime import DateTimeZone
-from QuantConnect import *
-from QuantConnect.Algorithm import *
-from QuantConnect.Brokerages import *
-from QuantConnect.Securities import *
-from QuantConnect.Data.Market import *
-from QuantConnect.Data.Consolidators import *
 
-from datetime import timedelta
 from math import floor
 
 ### <summary>
@@ -47,7 +35,7 @@ class FractionalQuantityRegressionAlgorithm(QCAlgorithm):
 
         self.SetTimeZone(DateTimeZone.Utc)
 
-        security = self.AddSecurity(SecurityType.Crypto, "BTCUSD", Resolution.Daily, Market.GDAX, False, 3.3, True)
+        security = self.AddSecurity(SecurityType.Crypto, "BTCUSD", Resolution.Daily, Market.GDAX, False, 1, True)
 
         ### The default buying power model for the Crypto security type is now CashBuyingPowerModel.
         ### Since this test algorithm uses leverage we need to set a buying power model with margin.

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -38,6 +38,7 @@ using Order = QuantConnect.Orders.Order;
 using OandaLimitOrder = Oanda.RestV20.Model.LimitOrder;
 using OrderType = QuantConnect.Orders.OrderType;
 using TimeInForce = QuantConnect.Orders.TimeInForce;
+using QuantConnect.Data;
 
 namespace QuantConnect.Brokerages.Oanda
 {
@@ -59,12 +60,13 @@ namespace QuantConnect.Brokerages.Oanda
         /// <param name="symbolMapper">The symbol mapper.</param>
         /// <param name="orderProvider">The order provider.</param>
         /// <param name="securityProvider">The holdings provider.</param>
+        /// <param name="aggregator">Consolidate ticks.</param>
         /// <param name="environment">The Oanda environment (Trade or Practice)</param>
         /// <param name="accessToken">The Oanda access token (can be the user's personal access token or the access token obtained with OAuth by QC on behalf of the user)</param>
         /// <param name="accountId">The account identifier.</param>
         /// <param name="agent">The Oanda agent string</param>
-        public OandaRestApiV20(OandaSymbolMapper symbolMapper, IOrderProvider orderProvider, ISecurityProvider securityProvider, Environment environment, string accessToken, string accountId, string agent)
-            : base(symbolMapper, orderProvider, securityProvider, environment, accessToken, accountId, agent)
+        public OandaRestApiV20(OandaSymbolMapper symbolMapper, IOrderProvider orderProvider, ISecurityProvider securityProvider, IDataAggregator aggregator, Environment environment, string accessToken, string accountId, string agent)
+            : base(symbolMapper, orderProvider, securityProvider, aggregator, environment, accessToken, accountId, agent)
         {
             var basePathRest = environment == Environment.Trade ?
                 "https://api-fxtrade.oanda.com/v3" :
@@ -78,6 +80,16 @@ namespace QuantConnect.Brokerages.Oanda
             _apiRest.Configuration.AddDefaultHeader(OandaAgentKey, Agent);
 
             _apiStreaming = new DefaultApi(basePathStreaming);
+        }
+
+        /// <summary>
+        /// Gets the account base currency
+        /// </summary>
+        public override string GetAccountBaseCurrency()
+        {
+            var response = _apiRest.GetAccount(Authorization, AccountId);
+
+            return response.Account.Currency;
         }
 
         /// <summary>
@@ -154,9 +166,9 @@ namespace QuantConnect.Brokerages.Oanda
         public override bool PlaceOrder(Order order)
         {
             var orderFee = OrderFee.Zero;
-            var marketOrderFillQuantity = 0;
+            var marketOrderFillQuantity = 0m;
             var marketOrderFillPrice = 0m;
-            var marketOrderRemainingQuantity = 0;
+            var marketOrderRemainingQuantity = 0m;
             var marketOrderStatus = OrderStatus.Filled;
             var request = GenerateOrderRequest(order);
             order.PriceCurrency = SecurityProvider.GetSecurity(order.Symbol).SymbolProperties.QuoteCurrency;
@@ -175,20 +187,20 @@ namespace QuantConnect.Brokerages.Oanda
 
                     if (fill.TradeOpened != null && fill.TradeOpened.TradeID.Length > 0)
                     {
-                        marketOrderFillQuantity = fill.TradeOpened.Units.ConvertInvariant<int>();
+                        marketOrderFillQuantity = fill.TradeOpened.Units.ConvertInvariant<decimal>();
                     }
 
                     if (fill.TradeReduced != null && fill.TradeReduced.TradeID.Length > 0)
                     {
-                        marketOrderFillQuantity = fill.TradeReduced.Units.ConvertInvariant<int>();
+                        marketOrderFillQuantity = fill.TradeReduced.Units.ConvertInvariant<decimal>();
                     }
 
                     if (fill.TradesClosed != null && fill.TradesClosed.Count > 0)
                     {
-                        marketOrderFillQuantity += fill.TradesClosed.Sum(trade => trade.Units.ConvertInvariant<int>());
+                        marketOrderFillQuantity += fill.TradesClosed.Sum(trade => trade.Units.ConvertInvariant<decimal>());
                     }
 
-                    marketOrderRemainingQuantity = Convert.ToInt32(order.AbsoluteQuantity - Math.Abs(marketOrderFillQuantity));
+                    marketOrderRemainingQuantity = order.AbsoluteQuantity - Math.Abs(marketOrderFillQuantity);
                     if (marketOrderRemainingQuantity > 0)
                     {
                         marketOrderStatus = OrderStatus.PartiallyFilled;
@@ -237,6 +249,8 @@ namespace QuantConnect.Brokerages.Oanda
             // replace the brokerage order id
             order.BrokerId[0] = response.Data.OrderCreateTransaction.Id;
 
+            OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, OrderFee.Zero) { Status = OrderStatus.UpdateSubmitted });
+
             // check if the updated (marketable) order was filled
             if (response.Data.OrderFillTransaction != null)
             {
@@ -244,7 +258,7 @@ namespace QuantConnect.Brokerages.Oanda
                 {
                     Status = OrderStatus.Filled,
                     FillPrice = response.Data.OrderFillTransaction.Price.ToDecimal(),
-                    FillQuantity = response.Data.OrderFillTransaction.Units.ConvertInvariant<int>()
+                    FillQuantity = response.Data.OrderFillTransaction.Units.ConvertInvariant<decimal>()
                 });
             }
 
@@ -344,10 +358,7 @@ namespace QuantConnect.Brokerages.Oanda
             switch (type)
             {
                 case "HEARTBEAT":
-                    lock (LockerConnectionMonitor)
-                    {
-                        LastHeartbeatUtcTime = DateTime.UtcNow;
-                    }
+                    TransactionsConnectionHandler.KeepAlive(DateTime.UtcNow);
                     break;
 
                 case "ORDER_FILL":
@@ -372,7 +383,7 @@ namespace QuantConnect.Brokerages.Oanda
                             {
                                 Status = OrderStatus.Filled,
                                 FillPrice = transaction.Price.ToDecimal(),
-                                FillQuantity = transaction.Units.ConvertInvariant<int>()
+                                FillQuantity = transaction.Units.ConvertInvariant<decimal>()
                             });
                         }
                     }
@@ -396,10 +407,7 @@ namespace QuantConnect.Brokerages.Oanda
             switch (type)
             {
                 case "HEARTBEAT":
-                    lock (LockerConnectionMonitor)
-                    {
-                        LastHeartbeatUtcTime = DateTime.UtcNow;
-                    }
+                    PricingConnectionHandler.KeepAlive(DateTime.UtcNow);
                     break;
 
                 case "PRICE":
@@ -422,10 +430,7 @@ namespace QuantConnect.Brokerages.Oanda
                     var askPrice = data.Asks.Last().Price.ConvertInvariant<decimal>();
                     var tick = new Tick(time, symbol, bidPrice, askPrice);
 
-                    lock (Ticks)
-                    {
-                        Ticks.Add(tick);
-                    }
+                    EmitTick(tick);
                     break;
             }
         }
@@ -642,7 +647,7 @@ namespace QuantConnect.Brokerages.Oanda
 
             var instrument = order["instrument"].ToString();
             var id = order["id"].ToString();
-            var units = order["units"].ConvertInvariant<int>();
+            var units = order["units"].ConvertInvariant<decimal>();
             var createTime = order["createTime"].ToString();
 
             var securityType = SymbolMapper.GetBrokerageSecurityType(instrument);
@@ -676,11 +681,11 @@ namespace QuantConnect.Brokerages.Oanda
             var securityType = SymbolMapper.GetBrokerageSecurityType(position.Instrument);
             var symbol = SymbolMapper.GetLeanSymbol(position.Instrument, securityType, Market.Oanda);
 
-            var longUnits = position._Long.Units.ConvertInvariant<int>();
-            var shortUnits = position._Short.Units.ConvertInvariant<int>();
+            var longUnits = position._Long.Units.ConvertInvariant<decimal>();
+            var shortUnits = position._Short.Units.ConvertInvariant<decimal>();
 
             decimal averagePrice = 0;
-            var quantity = 0;
+            var quantity = 0m;
             if (longUnits > 0)
             {
                 averagePrice = position._Long.AveragePrice.ToDecimal();
@@ -695,7 +700,6 @@ namespace QuantConnect.Brokerages.Oanda
             return new Holding
             {
                 Symbol = symbol,
-                Type = securityType,
                 AveragePrice = averagePrice,
                 CurrencySymbol = "$",
                 Quantity = quantity

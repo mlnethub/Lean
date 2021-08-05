@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -66,9 +66,9 @@ namespace QuantConnect.Tests.Python
         {
             var spy = GetSecurity<Equity>(Symbols.SPY, Resolution.Daily);
 
-            // Renaming GetBuyingPower will cause a NotImplementedException exception
+            // Renaming GetMaximumOrderQuantityForTargetDeltaBuyingPower will cause a NotImplementedException exception
             var code = CreateCustomBuyingPowerModelCode();
-            code = code.Replace("GetBuyingPower", "SetBuyingPower");
+            code = code.Replace("GetMaximumOrderQuantityForDeltaBuyingPower", "AnotherName");
             var pyObject = CreateCustomBuyingPowerModel(code);
             Assert.Throws<NotImplementedException>(() => spy.SetBuyingPowerModel(pyObject));
         }
@@ -86,10 +86,7 @@ namespace QuantConnect.Tests.Python
 import os, sys
 sys.path.append(os.getcwd())
 
-from clr import AddReference
-AddReference('QuantConnect.Common')
-from QuantConnect import *
-from QuantConnect.Securities import *
+from AlgorithmImports import *
 
 class CustomBuyingPowerModel:
     def __init__(self):
@@ -98,17 +95,29 @@ class CustomBuyingPowerModel:
     def GetBuyingPower(self, context):
         return BuyingPower(context.Portfolio.MarginRemaining)
 
+    def GetMaximumOrderQuantityForDeltaBuyingPower(self, context):
+        return GetMaximumOrderQuantityResult(200)
+
     def GetLeverage(self, security):
         return 1.0 / self.margin
 
-    def GetMaximumOrderQuantityForTargetValue(self, context):
-        return GetMaximumOrderQuantityForTargetValueResult(200)
+    def GetMaximumOrderQuantityForTargetBuyingPower(self, context):
+        return GetMaximumOrderQuantityResult(200)
 
     def GetReservedBuyingPowerForPosition(self, context):
         return ReservedBuyingPowerForPosition(context.Security.Holdings.AbsoluteHoldingsCost * self.margin)
 
     def HasSufficientBuyingPowerForOrder(self, context):
         return HasSufficientBuyingPowerForOrderResult(True)
+
+    def GetMaintenanceMargin(self, context):
+        return None
+
+    def GetInitialMarginRequirement(self, context):
+        return None
+
+    def GetInitialMarginRequiredForOrder(self, context):
+        return None
 
     def SetLeverage(self, security, leverage):
         self.margin = 1.0 / float(leverage)";
@@ -117,14 +126,11 @@ class CustomBuyingPowerModel:
 import os, sys
 sys.path.append(os.getcwd())
 
-from clr import AddReference
-AddReference('QuantConnect.Common')
-from QuantConnect import *
-from QuantConnect.Securities import *
+from AlgorithmImports import *
 
 class CustomBuyingPowerModel(SecurityMarginModel):
-    def GetMaximumOrderQuantityForTargetValue(self, context):
-        return GetMaximumOrderQuantityForTargetValueResult(100)";
+    def GetMaximumOrderQuantityForTargetBuyingPower(self, context):
+        return GetMaximumOrderQuantityResult(100)";
 
         private Security GetSecurity<T>(Symbol symbol, Resolution resolution)
         {

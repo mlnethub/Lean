@@ -43,7 +43,7 @@ namespace QuantConnect
             Tuple.Create(CBOT, 8),
             Tuple.Create(ICE, 9),
             Tuple.Create(CBOE, 10),
-            Tuple.Create(NSE, 11),
+            Tuple.Create(India, 11),
 
             Tuple.Create(GDAX, 12),
             Tuple.Create(Kraken, 13),
@@ -55,6 +55,12 @@ namespace QuantConnect
             Tuple.Create(HitBTC, 19),
             Tuple.Create(OkCoin, 20),
             Tuple.Create(Bitstamp, 21),
+            
+            Tuple.Create(COMEX, 22),
+            Tuple.Create(CME, 23),
+            Tuple.Create(SGX, 24),
+            Tuple.Create(HKFE, 25),
+
         };
 
         static Market()
@@ -120,9 +126,30 @@ namespace QuantConnect
         public const string CBOE = "cboe";
 
         /// <summary>
-        /// NSE
+        /// NSE - National Stock Exchange
         /// </summary>
-        public const string NSE = "nse";
+        public const string India = "india";
+
+        
+        /// <summary>
+        /// Comex
+        /// </summary>
+        public const string COMEX = "comex";
+        
+        /// <summary>
+        /// CME
+        /// </summary>
+        public const string CME = "cme";
+
+        /// <summary>
+        /// Singapore Exchange
+        /// </summary>
+        public const string SGX = "sgx";
+
+        /// <summary>
+        /// Hong Kong Exchange
+        /// </summary>
+        public const string HKFE = "hkfe";
 
         /// <summary>
         /// GDAX

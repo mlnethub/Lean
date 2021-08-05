@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -39,11 +39,18 @@ using QuantConnect.Util;
 
 namespace QuantConnect.Tests.Engine.DataFeeds
 {
-    [TestFixture]
+    [TestFixture, Parallelizable(ParallelScope.All)]
     public class CustomLiveDataFeedTests
     {
         private LiveSynchronizer _synchronizer;
         private IDataFeed _feed;
+
+        [TearDown]
+        public void TearDown()
+        {
+            _feed.Exit();
+            _synchronizer.DisposeSafely();
+        }
 
         [Test]
         public void EmitsDailyQuandlFutureDataOverWeekends()
@@ -217,7 +224,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     TickType = TickType.Trade
                 };
                 return new[] { tick, tick2 };
-            });
+            }, timeProvider);
             CreateDataFeed(dataQueueHandler);
             var dataManager = new DataManagerStub(algorithm, _feed);
 
@@ -285,6 +292,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
 
             timer.Value.Dispose();
             dataManager.RemoveAllSubscriptions();
+            dataQueueHandler.DisposeSafely();
             Assert.AreEqual(14, slicesEmitted);
             Assert.AreEqual(14 * symbols.Count, dataPointsEmitted);
         }
@@ -292,7 +300,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         private void CreateDataFeed(
             FuncDataQueueHandler funcDataQueueHandler = null)
         {
-            _feed = new TestableLiveTradingDataFeed(funcDataQueueHandler ?? new FuncDataQueueHandler(x => Enumerable.Empty<BaseData>()));
+            _feed = new TestableLiveTradingDataFeed(funcDataQueueHandler ?? new FuncDataQueueHandler(x => Enumerable.Empty<BaseData>(), new RealTimeProvider()));
         }
 
         private void RunLiveDataFeed(
@@ -305,9 +313,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             _synchronizer = new TestableLiveSynchronizer(timeProvider);
             _synchronizer.Initialize(algorithm, dataManager);
 
-            var mapFileProvider = new LocalDiskMapFileProvider();
             _feed.Initialize(algorithm, new LiveNodePacket(), new BacktestingResultHandler(),
-                mapFileProvider, new LocalDiskFactorFileProvider(mapFileProvider), new DefaultDataProvider(), dataManager, _synchronizer);
+                TestGlobals.MapFileProvider, TestGlobals.FactorFileProvider, TestGlobals.DataProvider, dataManager, _synchronizer, new DataChannelProvider());
 
             foreach (var symbol in symbols)
             {

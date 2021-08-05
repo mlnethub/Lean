@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -219,14 +219,14 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             var model = new TestFillModelInheritBaseClass();
             var result = model.Fill(
                 new FillModelParameters(_security,
-                    new StopLimitOrder(_security.Symbol, 1, 1, 1, orderDateTime),
+                    new StopLimitOrder(_security.Symbol, 1, 12344, 12346, orderDateTime),
                     new MockSubscriptionDataConfigProvider(_config),
                     Time.OneHour));
 
             Assert.True(model.StopLimitFillWasCalled);
             Assert.IsNotNull(result);
             Assert.True(model.GetPricesWasCalled);
-            Assert.AreEqual(1, result.OrderEvent.FillPrice);
+            Assert.AreEqual(12345, result.OrderEvent.FillPrice);
         }
 
         [Test]
@@ -249,7 +249,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
         public void OldBaseFillModel_MarketOnOpenFill()
         {
             var model = new TestFillModelInheritBaseClass();
-            _security.SetMarketPrice(new Tick(orderDateTime, _security.Symbol, 88, 88));
+            _security.SetMarketPrice(new Tick(orderDateTime, _security.Symbol, 88, 88) {TickType = TickType.Trade});
 
             var result = model.Fill(
                 new FillModelParameters(_security,
@@ -289,9 +289,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import ImmediateFillModel\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(ImmediateFillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.MarketFillWasCalled = False\n" +
@@ -323,9 +321,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import FillModel\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(FillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.MarketFillWasCalled = False\n" +
@@ -357,9 +353,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import FillModel\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(FillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.FillWasCalled = False\n" +
@@ -391,9 +385,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import FillModel, Fill\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(FillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.FillWasCalled = False\n" +
@@ -432,10 +424,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import FillModel, Fill\n" +
-                    "from QuantConnect.Orders import OrderEvent\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(FillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.FillWasCalled = False\n" +
@@ -474,9 +463,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             using (Py.GIL())
             {
                 var module = PythonEngine.ModuleFromString(Guid.NewGuid().ToString(),
-                    "from clr import AddReference\n" +
-                    "AddReference(\"QuantConnect.Common\")\n" +
-                    "from QuantConnect.Orders.Fills import ImmediateFillModel\n" +
+                    "from AlgorithmImports import *\n" +
                     "class CustomFillModel(ImmediateFillModel):\n" +
                     "   def __init__(self):\n" +
                     "       self.MarketFillWasCalled = False\n" +
@@ -591,6 +578,7 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             public bool MarketFillWasCalled;
             public bool StopMarketFillWasCalled;
             public bool StopLimitFillWasCalled;
+            public bool LimitIfTouchFillWasCalled;
             public bool LimitFillWasCalled;
             public bool MarketOnOpenFillWasCalled;
             public bool MarketOnCloseFillWasCalled;
@@ -612,6 +600,11 @@ namespace QuantConnect.Tests.Common.Orders.Fills
             {
                 StopLimitFillWasCalled = true;
                 return base.StopLimitFill(asset, order);
+            }
+            public override OrderEvent LimitIfTouchedFill(Security asset, LimitIfTouchedOrder order)
+            {
+                LimitIfTouchFillWasCalled = true;
+                return base.LimitIfTouchedFill(asset, order);
             }
 
             public override OrderEvent LimitFill(Security asset, LimitOrder order)

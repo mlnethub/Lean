@@ -1,4 +1,4 @@
-﻿/*
+/*
  * QUANTCONNECT.COM - Democratizing Finance, Empowering Individuals.
  * Lean Algorithmic Trading Engine v2.0. Copyright 2014 QuantConnect Corporation.
  *
@@ -25,6 +25,7 @@ using QuantConnect.Data.Market;
 using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.DataFeeds.Enumerators;
+using QuantConnect.Logging;
 using QuantConnect.Securities;
 using QuantConnect.Securities.Equity;
 using QuantConnect.Securities.Future;
@@ -33,7 +34,7 @@ using QuantConnect.Util;
 
 namespace QuantConnect.Tests.Engine.DataFeeds
 {
-    [TestFixture]
+    [TestFixture, Parallelizable(ParallelScope.All)]
     public class SubscriptionCollectionTests
     {
         [Test]
@@ -59,9 +60,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             var subscriptionRequest = new SubscriptionRequest(false, null, security, config, start, end);
             var subscription = new Subscription(subscriptionRequest, subscriptionDataEnumerator, timeZoneOffsetProvider);
 
-            var addTask = new TaskFactory().StartNew(() =>
+            var addTask = Task.Factory.StartNew(() =>
             {
-                Console.WriteLine("Add task started");
+                Log.Trace("Add task started");
 
                 while (DateTime.UtcNow < end)
                 {
@@ -73,12 +74,12 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     Thread.Sleep(1);
                 }
 
-                Console.WriteLine("Add task ended");
+                Log.Trace("Add task ended");
             }, cts.Token);
 
-            var removeTask = new TaskFactory().StartNew(() =>
+            var removeTask = Task.Factory.StartNew(() =>
             {
-                Console.WriteLine("Remove task started");
+                Log.Trace("Remove task started");
 
                 while (DateTime.UtcNow < end)
                 {
@@ -88,12 +89,12 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     Thread.Sleep(1);
                 }
 
-                Console.WriteLine("Remove task ended");
+                Log.Trace("Remove task ended");
             }, cts.Token);
 
-            var readTask = new TaskFactory().StartNew(() =>
+            var readTask = Task.Factory.StartNew(() =>
             {
-                Console.WriteLine("Read task started");
+                Log.Trace("Read task started");
 
                 while (DateTime.UtcNow < end)
                 {
@@ -102,7 +103,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     Thread.Sleep(1);
                 }
 
-                Console.WriteLine("Read task ended");
+                Log.Trace("Read task ended");
             }, cts.Token);
 
             Task.WaitAll(addTask, removeTask, readTask);
@@ -241,7 +242,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         public void SubscriptionsAreSortedWhenAdding()
         {
             var subscriptionColletion = new SubscriptionCollection();
-            var subscription = CreateSubscription(Resolution.Second, "GC", false, SecurityType.Future);
+            var subscription = CreateSubscription(Resolution.Second, Futures.Metals.Gold, false, SecurityType.Future);
             var subscription2 = CreateSubscription(Resolution.Second, "SPY");
             var subscription3 = CreateSubscription(Resolution.Second, "AAPL", false, SecurityType.Option);
             var subscription4 = CreateSubscription(Resolution.Second, "EURGBP");
@@ -277,7 +278,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         public void SubscriptionsAreSortedWhenAdding2()
         {
             var subscriptionColletion = new SubscriptionCollection();
-            var subscription = CreateSubscription(Resolution.Second, "GC", false, SecurityType.Future);
+            var subscription = CreateSubscription(Resolution.Second, Futures.Metals.Gold, false, SecurityType.Future);
             var subscription2 = CreateSubscription(Resolution.Second, "SPY");
             var subscription3 = CreateSubscription(Resolution.Second, "AAPL", false, SecurityType.Option);
             var subscription4 = CreateSubscription(Resolution.Second, "EURGBP");
@@ -303,7 +304,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds
         public void SubscriptionsAreSortedWhenRemoving()
         {
             var subscriptionColletion = new SubscriptionCollection();
-            var subscription = CreateSubscription(Resolution.Second, "BTCEUR", false, SecurityType.Future);
+            var subscription = CreateSubscription(Resolution.Second, Futures.Metals.Gold, false, SecurityType.Future);
             var subscription2 = CreateSubscription(Resolution.Second, "SPY");
             var subscription3 = CreateSubscription(Resolution.Second, "AAPL", false, SecurityType.Option);
             var subscription4 = CreateSubscription(Resolution.Second, "EURGBP");
@@ -369,9 +370,14 @@ namespace QuantConnect.Tests.Engine.DataFeeds
             }
             else if (type == SecurityType.Option)
             {
-                _symbol = new Symbol(SecurityIdentifier.GenerateOption(DateTime.Now,
-                    SecurityIdentifier.GenerateEquity(DateTime.Now, symbol, Market.USA),
-                    Market.USA, 0.0m, OptionRight.Call, OptionStyle.American), symbol);
+                _symbol = Symbol.CreateOption(
+                    new Symbol(SecurityIdentifier.GenerateEquity(DateTime.Now, symbol, Market.USA), symbol),
+                    Market.USA,
+                    OptionStyle.American,
+                    OptionRight.Call,
+                    0m,
+                    DateTime.Now
+                );
                 security = new Option(
                     _symbol,
                     SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc),
@@ -379,12 +385,13 @@ namespace QuantConnect.Tests.Engine.DataFeeds
                     new OptionSymbolProperties(SymbolProperties.GetDefault(Currencies.USD)),
                     ErrorCurrencyConverter.Instance,
                     RegisteredSecurityDataTypesProvider.Null,
-                    new SecurityCache()
+                    new SecurityCache(),
+                    null
                 );
             }
             else if (type == SecurityType.Future)
             {
-                _symbol = new Symbol(SecurityIdentifier.GenerateFuture(DateTime.Now, symbol, Market.USA), symbol);
+                _symbol = new Symbol(SecurityIdentifier.GenerateFuture(DateTime.Now, symbol, Market.COMEX), symbol);
                 security = new Future(
                     _symbol,
                     SecurityExchangeHours.AlwaysOpen(DateTimeZone.Utc),

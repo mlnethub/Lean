@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Newtonsoft.Json;
 using NUnit.Framework;
 using QuantConnect.Data;
@@ -27,6 +28,7 @@ using QuantConnect.Data.UniverseSelection;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Lean.Engine.DataFeeds.Enumerators.Factories;
 using QuantConnect.Securities;
+using QuantConnect.Util;
 using Log = QuantConnect.Logging.Log;
 
 namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
@@ -34,6 +36,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
     [TestFixture]
     public class FineFundamentalSubscriptionEnumeratorFactoryTests
     {
+        [Parallelizable(ParallelScope.Self)]
         [TestCaseSource(nameof(GetFineFundamentalTestParametersBacktest))]
         [TestCaseSource(nameof(GetFineFundamentalTestParametersLive))]
         public void ReadsFineFundamental(FineFundamentalTestParameters parameters)
@@ -63,7 +66,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
             }
 
             stopwatch.Stop();
-            Console.WriteLine("Total rows: {0}, elapsed time: {1}", rows.Count, stopwatch.Elapsed);
+            Log.Trace("Total rows: {0}, elapsed time: {1}", rows.Count, stopwatch.Elapsed);
 
             Assert.AreEqual(parameters.RowCount, rows.Count);
 
@@ -76,18 +79,21 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
             Assert.IsTrue(row.SecurityReference.SecuritySymbol == parameters.Symbol.Value || row.SecurityReference.SecuritySymbol == null);
             Assert.AreEqual(parameters.Ebitda3M, row.FinancialStatements.IncomeStatement.EBITDA.ThreeMonths);
             Assert.AreEqual(parameters.Ebitda12M, row.FinancialStatements.IncomeStatement.EBITDA.TwelveMonths);
-            Assert.AreEqual(parameters.Ebitda12M, row.FinancialStatements.IncomeStatement.EBITDA);
+            Assert.AreEqual(parameters.Ebitda12M, (decimal)row.FinancialStatements.IncomeStatement.EBITDA);
             Assert.AreEqual(parameters.CostOfRevenue3M, row.FinancialStatements.IncomeStatement.CostOfRevenue.ThreeMonths);
             Assert.AreEqual(parameters.CostOfRevenue12M, row.FinancialStatements.IncomeStatement.CostOfRevenue.TwelveMonths);
-            Assert.AreEqual(parameters.CostOfRevenue12M, row.FinancialStatements.IncomeStatement.CostOfRevenue);
+            Assert.AreEqual(parameters.CostOfRevenue12M, (decimal)row.FinancialStatements.IncomeStatement.CostOfRevenue);
             Assert.AreEqual(parameters.EquityPerShareGrowth1Y, row.EarningRatios.EquityPerShareGrowth.OneYear);
-            Assert.AreEqual(parameters.EquityPerShareGrowth1Y, row.EarningRatios.EquityPerShareGrowth);
+            Assert.AreEqual(parameters.EquityPerShareGrowth1Y, (decimal)row.EarningRatios.EquityPerShareGrowth);
             Assert.AreEqual(parameters.PeRatio, row.ValuationRatios.PERatio);
-            Assert.AreEqual(parameters.NetIncomeExtraordinary3M, row.FinancialStatements.IncomeStatement.NetIncomeExtraordinary.ThreeMonths);
+            if (!parameters.FinancialHealthGrade.IsNullOrEmpty())
+            {
+                Assert.AreEqual(parameters.FinancialHealthGrade, row.AssetClassification.FinancialHealthGrade);
+            }
             enumerator.Dispose();
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void DeserializesAssetClassificationAndCompanyProfile()
         {
             var symbol = Symbols.AAPL;
@@ -115,7 +121,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
             enumerator.Dispose();
         }
 
-        [Test]
+        [Test, Parallelizable(ParallelScope.Self)]
         public void DeserializesUpdatedFileFormat()
         {
             var json = File.ReadAllText("./TestData/aapl_fine_fundamental.json");
@@ -129,6 +135,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
         [Test, Category("TravisExclude")]
         public void DoesNotLeakMemory()
         {
+            // allow system to stabilize
+            Thread.Sleep(250);
             var symbol = Symbols.AAPL;
             var startDate = new DateTime(2014, 4, 30);
             var endDate = new DateTime(2014, 4, 30);
@@ -180,9 +188,10 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                 new FineFundamentalTestParameters("AAPL-OneYear")
                 {
                     Symbol = Symbols.AAPL,
-                    StartDate = new DateTime(2014, 1, 1),
+                    StartDate = new DateTime(2014, 2, 28),
                     EndDate = new DateTime(2014, 12, 31),
-                    RowCount = 365,
+                    // 2014-2-28 is the first fine data point we have in the OS data folder
+                    RowCount = (new DateTime(2014, 12, 31) - new DateTime(2014, 2, 28)).Days,
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-BeforeFirstDate")
@@ -190,7 +199,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     Symbol = Symbols.AAPL,
                     StartDate = new DateTime(2014, 2, 20),
                     EndDate = new DateTime(2014, 2, 20),
-                    RowCount = 1,
+                    // FineFundamentalSubscriptionEnumeratorFactory will not emit null data points
+                    RowCount = 0,
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-FirstDate")
@@ -205,7 +215,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 35748000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.012858m,
+                    PeRatio = 13.012856m,
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-AfterFirstDate")
@@ -220,7 +230,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 35748000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.012858m
+                    PeRatio = 13.012856m
                 },
                 new FineFundamentalTestParameters("AAPL-PreviousBeforeLastDate")
                 {
@@ -234,7 +244,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 35748000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.272502m,
+                    PeRatio = 13.2725m,
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-BeforeLastDate")
@@ -249,7 +259,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 27699000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.272502m,
+                    PeRatio = 13.2725m,
+                    FinancialHealthGrade = "A",
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-LastDate")
@@ -264,9 +275,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 27699000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.272502m,
+                    PeRatio = 13.2725m,
                     // different than AAPL-BeforeLastDate
-                    NetIncomeExtraordinary3M = 3000000,
+                    FinancialHealthGrade = "B",
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("AAPL-AfterLastDate")
@@ -281,9 +292,9 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     CostOfRevenue3M = 27699000000m,
                     CostOfRevenue12M = 106606000000m,
                     EquityPerShareGrowth1Y = 0.091652m,
-                    PeRatio = 13.272502m,
+                    PeRatio = 13.2725m,
                     // different than AAPL-BeforeLastDate
-                    NetIncomeExtraordinary3M = 3000000,
+                    FinancialHealthGrade = "B",
                     LiveMode = liveMode
                 },
                 new FineFundamentalTestParameters("No-Fine")
@@ -291,7 +302,8 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
                     Symbol = Symbols.EURUSD,
                     StartDate = new DateTime(2014, 5, 10),
                     EndDate = new DateTime(2014, 5, 10),
-                    RowCount = 1,
+                    // FineFundamentalSubscriptionEnumeratorFactory will not emit null data points
+                    RowCount = 0,
                     LiveMode = liveMode
                 }
             }.Select(x => new TestCaseData(x).SetName(x.Name)).ToArray();
@@ -312,7 +324,7 @@ namespace QuantConnect.Tests.Engine.DataFeeds.Enumerators.Factories
             public decimal CostOfRevenue12M { get; set; }
             public decimal EquityPerShareGrowth1Y { get; set; }
             public decimal PeRatio { get; set; }
-            public decimal NetIncomeExtraordinary3M { get; set; }
+            public string FinancialHealthGrade { get; set; }
 
             public FineFundamentalTestParameters(string name)
             {
